@@ -54,7 +54,7 @@ public:
 
     float px = 0.f, py = 0.f, pz = 0.f, s = 1024.f;
 
-    void Generate(uint64_t min_depth, uint64_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, float scaling_factor)
+    void Generate(uint64_t min_depth, uint64_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, float intensity)
     {
         root.Clear();
         m_prev_leaves = std::move(m_curr_leaves);
@@ -116,9 +116,12 @@ public:
                         {
                             float max_dist = further_radius - radius;
                             float current_dist = sqrtf(dist2);
+                            float relative_dist = (current_dist - radius) / (further_radius - radius);
 
-                            float t = 1.0f - std::min(std::max(current_dist / max_dist, 0.0f), 1.0f);
-                            t = glm::pow(t, scaling_factor);
+                            float log_t = std::log(1.0f + relative_dist * intensity) / std::log(1.0f + intensity);
+
+                            float t = 1.f - log_t;
+
                             target_depth = t * (float)max_depth;
                         }
 

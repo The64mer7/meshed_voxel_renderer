@@ -33,45 +33,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(fastnoise2)
 
-#[[
-# --- ImGui FetchContent (Modern v1.90+) ---
-FetchContent_Declare(
-    imgui
-    GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.90.4  # Latest stable
-)
-FetchContent_MakeAvailable(imgui)
-
-set(IMGUI_DIR ${imgui_SOURCE_DIR})
-
-# Define the source files (Core + Backends)
-set(IMGUI_SOURCES
-    ${IMGUI_DIR}/imgui.cpp
-    ${IMGUI_DIR}/imgui_draw.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/imgui_demo.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
-)
-
-add_library(imgui STATIC ${IMGUI_SOURCES})
-
-# FIX: Tell ImGui exactly how to find Glad 2
-target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_CUSTOM)
-target_compile_definitions(imgui PUBLIC "IMGUI_IMPL_OPENGL_LOADER_CUSTOM=\"glad/gl.h\"")
-
-# Include paths for the imgui library itself
-target_include_directories(imgui PUBLIC 
-    ${IMGUI_DIR} 
-    ${IMGUI_DIR}/backends
-    "${CMAKE_CURRENT_SOURCE_DIR}/dependencies" # Folder containing 'glad/gl.h'
-)
-
-# Link GLFW to the imgui library so the backend can find glfw3.h
-target_link_libraries(imgui PRIVATE glfw)
-]]
-
 add_executable(${PROJECT_NAME_VAR} ${SOURCES} ${SHADER_SOURCES})
 
 set(SHADER_DEST_DIR $<TARGET_FILE_DIR:${PROJECT_NAME_VAR}>/shaders)

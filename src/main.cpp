@@ -535,7 +535,7 @@ uint8_t octree_generate_max_depth = 13;
 void octree_generate(Octree* octree, glm::vec3 p)
 {
     //octree->Generate(4, octree_generate_max_depth, p.x, p.y, p.z, 0.1f, 512.f,2.f);
-    octree->Generate(4, octree_generate_max_depth, p.x, p.y, p.z, 0.f, 1024.f * 12, 32.f);
+    octree->Generate(4, octree_generate_max_depth, p.x, p.y, p.z, 0.f, 1024.f * 12, 512.f);
 }
 
 std::mutex tree_builder_mtx;
