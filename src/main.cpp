@@ -1,0 +1,979 @@
+#include <glad/gl.h>
+#include <GLFW/glfw3.h>
+
+#include <glm/glm.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/vec_swizzle.hpp>
+
+#define OCTREE_SIZE (1024.f * 32)
+
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <shared_mutex>
+#include <atomic>
+#include <unordered_map>
+#include <bit>
+#include <queue>
+#include <FastNoise/FastNoise.h>
+
+#include <stdio.h>
+
+#include "engine.h"
+#include "octree.h"
+#include "camera.hpp"
+#include "buffer.hpp"
+#include "allocator.hpp"
+#include "shader.h"
+
+#include <atomic>
+#include <format>
+
+template<typename T>
+class ThreadSafeStack
+{
+public:
+    void Push(const T& value)
+    {
+        {
+            std::unique_lock<std::mutex> lock(m_Mutex);
+            m_Stack.push(value);
+        }
+        m_Cv.notify_one();
+    }
+
+    void WaitAndPop(T& out)
+    {
+        std::unique_lock<std::mutex> lock(m_Mutex);
+        m_Cv.wait(lock, [this] {return !m_Stack.empty(); });
+
+        out = std::move(m_Stack.top());
+        m_Stack.pop();
+    }
+
+    bool TryPop(T& out)
+    {
+        std::unique_lock<std::mutex> lock(m_Mutex);
+        if (m_Stack.empty())
+            return false;
+
+        out = std::move(m_Stack.top());
+        m_Stack.pop();
+
+        return true;
+    }
+
+    bool IsEmpty()
+    {
+        std::lock_guard lock(m_Mutex);
+        return m_Stack.empty();
+    }
+
+    size_t Size()
+    {
+        std::lock_guard lock(m_Mutex);
+        return m_Stack.size();
+    }
+
+private:
+    std::mutex m_Mutex;
+    std::condition_variable m_Cv;
+    std::stack<T> m_Stack;
+};
+
+struct DataResult
+{
+    void* addr;
+    size_t size;
+    int id;
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool consumed;
+
+    glm::ivec4 key;
+
+    void Consume()
+    {
+        {
+            std::lock_guard lock(mtx);
+            consumed = true;
+        }
+        cv.notify_one();
+    }
+};
+
+std::mutex coutMtx;
+
+struct DrawArraysIndirectCommand
+{
+    uint32_t count;
+    uint32_t instanceCount = 1u;
+    uint32_t first;
+    uint32_t baseInstance = 0u;
+};
+
+namespace std {
+    template <>
+    struct hash<glm::ivec4> {
+        std::size_t operator()(const glm::ivec4& v) const noexcept {
+            std::size_t h1 = std::hash<int>{}(v.x);
+            std::size_t h2 = std::hash<int>{}(v.y);
+            std::size_t h3 = std::hash<int>{}(v.z);
+            std::size_t h4 = std::hash<int>{}(v.w);
+            return h1 ^ (h2 << 1) ^ (h3 << 2) ^ (h4 << 3);
+        }
+    };
+
+    template <>
+    struct hash<glm::ivec2> {
+        std::size_t operator()(const glm::ivec2& v) const noexcept {
+            std::size_t h1 = std::hash<int>{}(v.x);
+            std::size_t h2 = std::hash<int>{}(v.y);
+            return h1 ^ (h2 << 1);
+        }
+    };
+}
+
+struct TerrainSettings
+{
+    float frequency = 0.0128f;
+    float amplitude = 32.f;
+    float lacunarity = 2.f;
+    float persistence = 0.5f;
+    int octaves = 6;
+    float minTesselation = 4.f;
+    float maxTesselation = 64.f;
+    float minLODDistance = 256.f;
+    float maxLODDistance = 512.f;
+};
+
+class TerrainGenerator
+{
+public:
+    TerrainSettings m_TerrainSettings;
+    const std::vector<uint64_t>& PermutationArray() const
+    {
+        static std::vector<uint64_t> perm = {
+            151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
+            140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
+            247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32,
+            57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175,
+            74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122,
+            60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54,
+            65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169,
+            200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64,
+            52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212,
+            207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213,
+            119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9,
+            129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104,
+            218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241,
+            81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157,
+            184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93,
+            222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180
+        };
+
+        return perm;
+    }
+    int PermHash(glm::vec2 uv) const
+    {
+        int xi = int(floor(uv.x)) & 255;
+        int yi = int(floor(uv.y)) & 255;
+        return PermutationArray()[((PermutationArray()[xi] + yi) & 255) & 255];
+    }
+    glm::vec2 GetGradientVector(int index) const
+    {
+        const int count = 128;
+        const float pi = 3.14159265;
+        index %= count;
+        float findex = float(index);
+        float angle = findex * 2.f * pi / count;
+
+        return glm::vec2(cos(angle), sin(angle));
+    }
+    glm::vec2 Fade(glm::vec2 t) const
+    {
+        return t * t * t * (t * (t * 6.f - 15.f) + 10.f);
+    }
+    float FBM(glm::vec2 uv) const
+    {
+        float fbm = 0.f;
+
+        float freq = 1.f;
+        float amp = 1.f;
+        float maxAmp = 0.f;
+        for (int i = 0; i < m_TerrainSettings.octaves; i++)
+        {
+            fbm += Perlin(uv * freq) * amp;
+            maxAmp += amp;
+            freq *= m_TerrainSettings.lacunarity;
+            amp *= m_TerrainSettings.persistence;
+        }
+        if (maxAmp == 0.f)
+            return 0.f;
+
+        return fbm / maxAmp;
+    }
+    float ComputeHeight(glm::vec2 position) const
+    {
+        return FBM(position * m_TerrainSettings.frequency) * m_TerrainSettings.amplitude;
+    }
+    glm::vec3 ComputeNormal(glm::vec2 position, float deltaDist)
+    {
+        glm::vec2 epsilon = glm::vec2(deltaDist, 0.f);
+
+        float heightXNegative = ComputeHeight(position - glm::vec2(epsilon.x, epsilon.y));
+        float heightXPositive = ComputeHeight(position + glm::vec2(epsilon.x, epsilon.y));
+
+        float heightZNegative = ComputeHeight(position - glm::vec2(epsilon.y, epsilon.x));
+        float heightZPositive = ComputeHeight(position + glm::vec2(epsilon.y, epsilon.x));
+
+        glm::vec3 result;
+        result.x = heightXNegative - heightXPositive;
+        result.y = 2 * deltaDist;
+        result.z = heightZNegative - heightZPositive;
+
+        return glm::normalize(result);
+    }
+    glm::vec2 ComputeGradient(glm::vec2 position, float deltaDist)
+    {
+        glm::vec3 normal = ComputeNormal(position, deltaDist);
+
+        return glm::vec2(normal.x, normal.z) / normal.y;
+    }
+    glm::vec2 ComputeGradientAnglesRadians(glm::vec2 position, float deltaDist)
+    {
+        glm::vec2 gradient = ComputeGradient(position, deltaDist);
+        return glm::atan(gradient);
+    }
+    float ComputeGradientAngleRadians(glm::vec2 position, float deltaDist)
+    {
+        glm::vec2 gradient = ComputeGradient(position, deltaDist);
+        return glm::atan(glm::length(gradient));
+    }
+    float Perlin(glm::vec2 p) const
+    {
+
+        glm::vec2 p00 = floor(p);
+        glm::vec2 p01 = p00 + glm::vec2(0, 1);
+        glm::vec2 p10 = p00 + glm::vec2(1, 0);
+        glm::vec2 p11 = p00 + glm::vec2(1, 1);
+
+        glm::vec2 g00 = GetGradientVector(PermHash(p00));
+        glm::vec2 g01 = GetGradientVector(PermHash(p01));
+        glm::vec2 g10 = GetGradientVector(PermHash(p10));
+        glm::vec2 g11 = GetGradientVector(PermHash(p11));
+
+        glm::vec2 w00 = p - p00;
+        glm::vec2 w01 = p - p01;
+        glm::vec2 w10 = p - p10;
+        glm::vec2 w11 = p - p11;
+
+        float d00 = dot(g00, w00);
+        float d01 = dot(g01, w01);
+        float d10 = dot(g10, w10);
+        float d11 = dot(g11, w11);
+
+        glm::vec2 t = fract(p);
+
+        glm::vec2 ft = Fade(t);
+
+        glm::vec2 perlinX = glm::mix(glm::vec2(d00, d01), glm::vec2(d10, d11), ft.x);
+
+        float perlin = glm::mix(perlinX.x, perlinX.y, ft.y);
+
+        float perlinNormalized = perlin * glm::sqrt(2.0f);
+        return perlinNormalized;
+    }
+};
+
+uint64_t cacheCount = 0;
+std::atomic<uint64_t> reuseCount;
+
+static FastNoise::SmartNode<FastNoise::Perlin> sourceNode;
+static FastNoise::SmartNode<FastNoise::FractalFBm> noiseNode;
+
+void SetupNoise() {
+    sourceNode = FastNoise::New<FastNoise::Perlin>();
+
+    noiseNode = FastNoise::New<FastNoise::FractalFBm>();
+
+    noiseNode->SetSource(sourceNode);
+    noiseNode->SetOctaveCount(5);
+    noiseNode->SetLacunarity(2.0f);
+    noiseNode->SetGain(0.3f);
+}
+
+float WorldHeight(glm::vec3 p)
+{
+    static TerrainGenerator tg = []()
+        {
+            TerrainGenerator t;
+            TerrainSettings ts;
+            t.m_TerrainSettings = ts;
+            return t;
+        }();
+
+    //static std::shared_mutex mtx;
+    //static std::unordered_map<glm::ivec2, float> heightMap;
+    //glm::ivec2 key = glm::xz(1024.f * p);
+    //
+    //{
+    //    std::shared_lock lock(mtx);
+    //    auto it = heightMap.find(key);
+    //    if (it != heightMap.end())
+    //    {
+    //        reuseCount.fetch_add(1);
+    //        return it->second;
+    //    }
+    //}
+
+    float h = 16+tg.ComputeHeight(glm::xz(p));
+
+    //{
+    //    std::unique_lock lock(mtx);
+    //    cacheCount++;
+    //    heightMap[key] = h;
+    //}
+    return h;
+}
+
+uint32_t WorldGenerator(glm::vec3 p)
+{
+    //p /= 16;
+    //return glm::length(glm::mod(p, 2.f) - 1.f) <= 1.f;
+    return WorldHeight(p) >= p.y;
+}
+
+std::vector<glm::vec4> spheresLoaded;
+class ThreadGenerator
+{
+public:
+    std::vector<float> m_HeightMap;
+    void Init()
+    {
+        static bool once = [&]()
+            {
+                SetupNoise();
+                return true;
+            }();
+        m_HeightMap.resize(glm::pow(2 + m_ChunkAxisCount, 2u));
+    }
+
+    auto ComputeHeightMap(glm::vec2 origin, int lod, int seed)
+    {
+        // A standard frequency for a large world
+        float worldFrequency = 1.f;
+
+        // 1. Scale the origin so the noise 'matches' world coordinates
+        float noiseX = origin.x * worldFrequency;
+        float noiseY = origin.y * worldFrequency;
+
+        // 2. Scale the step size so we don't skip over the mountains
+        float step = VoxelSize(lod) * worldFrequency;
+        origin -= step;
+
+        return noiseNode->GenUniformGrid2D(
+            m_HeightMap.data(),
+            noiseX, noiseY,
+            m_ChunkAxisCount + 2, m_ChunkAxisCount + 2,
+            step, step,
+            seed
+        );
+    }
+
+    float ApplyAmplitude(float v)
+    {
+        // 8 is still very small for a 1024-sized world. 
+        // Try 64 or 128 to actually see 'terrain'.
+        return 32.0f + (32.0f * v);
+    }
+    float GetHeight(int x, int y) // -1 to m_ChunkAxisCount
+    {
+        x += 1; y += 1;
+        return ApplyAmplitude(m_HeightMap[x + (m_ChunkAxisCount+2) * y]);
+    }
+
+    bool LoadChunk(glm::ivec4 chunkLod, DataResult* outResult)
+    {
+        m_StagingVertices.clear();
+        int32_t lod = chunkLod.w;
+
+        float chunkSize = ChunkSize(lod);
+        float voxelSize = VoxelSize(lod);
+         
+        glm::vec3 chunkOrigin = chunkSize * glm::vec3(glm::xyz(chunkLod));
+        uint32_t maxIndex = glm::pow(m_ChunkAxisCount, 3);
+
+        auto bounds = ComputeHeightMap(glm::xz(chunkOrigin), lod, 191122);
+
+        if (ApplyAmplitude(bounds.min) > chunkOrigin.y + chunkSize)
+            return false;
+        if (ApplyAmplitude(bounds.max) < chunkOrigin.y)
+            return false;
+
+        for (uint32_t z = 0; z < m_ChunkAxisCount; z++)
+            for (uint32_t x = 0; x < m_ChunkAxisCount; x++)
+            {
+                float h = GetHeight(x, z);
+                glm::vec3 voxelOrigin = chunkOrigin + glm::vec3(x,0,z) * voxelSize;
+                for (int i = 0; i < spheresLoaded.size(); ++i)
+                {
+                    glm::vec4 sp = spheresLoaded[i];
+                    if (glm::distance(glm::xz(sp), glm::xz(voxelOrigin)) > sp.w)
+                        continue;
+                    float sp_h = glm::sqrt(glm::pow(sp.w, 2.f) - glm::dot(glm::xz(voxelOrigin), glm::xz(voxelOrigin)));
+
+                    h = glm::max(sp_h, h);
+                }
+
+                int y_coord = glm::floor((h - chunkOrigin.y) / voxelSize);
+                for (int j = 0; j < 3; j++)
+                {
+                    uint32_t y = y_coord - j;
+                    glm::ivec3 xyz = { x,y,z };
+                    voxelOrigin = chunkOrigin + glm::vec3(xyz) * voxelSize;
+
+                    if (voxelOrigin.y < chunkOrigin.y || voxelOrigin.y >= chunkOrigin.y + chunkSize)
+                        break;
+                    // X NX Y NY Z NZ
+                    bool positive = true;
+                    for (uint32_t i = 0b1; i < 0b1000000; i <<= 1, positive = !positive)
+                    {
+                        glm::ivec3 idelta;
+                        idelta.x = ((i & 0b1) ? 1 : 0) - ((i & 0b10) ? 1 : 0);
+                        idelta.y = ((i & 0b100) ? 1 : 0) - ((i & 0b1000) ? 1 : 0);
+                        idelta.z = ((i & 0b10000) ? 1 : 0) - ((i & 0b100000) ? 1 : 0);
+                        
+                        glm::vec3 delta = idelta;;
+                        delta *= voxelSize;
+                        uint32_t currAxis = (std::bit_width(i) - 0b1) >> 1;
+
+                        glm::vec3 vertDelta = glm::greaterThan(delta, glm::vec3(0.f));
+                        glm::vec3 currFaceOrigin = voxelOrigin + vertDelta * voxelSize;
+
+                        glm::vec3 neighborOrigin = voxelOrigin + delta;
+
+                        int32_t nx = x + idelta.x;
+                        int32_t nz = z + idelta.z;
+
+                        float nh = GetHeight(nx, nz);
+                        for (int i = 0; i < spheresLoaded.size(); ++i)
+                        {
+                            glm::vec4 sp = spheresLoaded[i];
+                            if (glm::distance(glm::xz(sp), glm::xz(neighborOrigin)) > sp.w)
+                                continue;
+                            float sp_h = glm::sqrt(glm::pow(sp.w, 2.f) - glm::dot(glm::xz(neighborOrigin), glm::xz(neighborOrigin)));
+
+                            nh = glm::max(sp_h, nh);
+                        }
+
+                        if (nh < neighborOrigin.y) // should emit face
+                        {
+                            glm::vec4 face[4];
+                            glm::ivec2 axes = glm::ivec2(
+                                (currAxis + 1) % 3,
+                                (currAxis + 2) % 3
+                            );
+                            for (int f = 0; f < 4; f++)
+                            {
+                                glm::ivec2 mask = { f % 2, f / 2 };
+                                glm::vec3 offset(0.f);
+                                offset[axes.x] = mask.x;
+                                offset[axes.y] = mask.y;
+
+                                face[f] = glm::vec4(currFaceOrigin + voxelSize * offset, 0.f);
+                            }
+                            m_StagingVertices.push_back(face[0]);
+                            m_StagingVertices.push_back(face[positive ? 1 : 2]);
+                            m_StagingVertices.push_back(face[positive ? 2 : 1]);
+
+                            m_StagingVertices.push_back(face[positive ? 2 : 1]);
+                            m_StagingVertices.push_back(face[positive ? 1 : 2]);
+                            m_StagingVertices.push_back(face[3]);
+                        }
+                    }
+                }
+            }
+        if (m_StagingVertices.empty())
+            return false;
+
+        outResult->addr = m_StagingVertices.data();
+        outResult->size = m_StagingVertices.size() * sizeof(glm::vec4);
+        outResult->consumed = false;
+
+        return true;
+    }
+
+    float VoxelSize(int32_t lod)
+    {
+        return ChunkSize(lod) / m_ChunkAxisCount;
+    }
+
+    float ChunkSize(int32_t lod)
+    {
+        return m_ChunkSize / glm::pow(2, lod);
+    }
+
+    float m_ChunkSize = OCTREE_SIZE;
+    uint32_t m_ChunkAxisCount = 32;
+
+    std::vector<glm::vec4> m_StagingVertices;
+};
+
+ThreadSafeQueue<glm::vec3> requestQueue;
+ThreadSafeQueue<glm::ivec4> taskQueue;
+ThreadSafeQueue<DataResult*> resultQueue;
+
+struct builder_info
+{
+    glm::vec3 p;
+    Octree* tree;
+};
+
+uint8_t octree_generate_max_depth = 13;
+void octree_generate(Octree* octree, glm::vec3 p)
+{
+    //octree->Generate(4, octree_generate_max_depth, p.x, p.y, p.z, 0.1f, 512.f,2.f);
+    octree->Generate(4, octree_generate_max_depth, p.x, p.y, p.z, 0.f, 1024.f * 12, 32.f);
+}
+
+std::mutex tree_builder_mtx;
+std::condition_variable tree_builder_cv;
+builder_info tree_builder_info;
+
+enum builder_state
+{
+    IDLE,
+    REQUEST,
+    READY
+};
+std::atomic<builder_state> tree_builder_state = builder_state::IDLE;
+
+typedef struct Entity
+{
+    glm::vec3 position;
+    glm::vec3 direction;
+    glm::vec3 velocity;
+} Entity;
+
+
+struct app_data_t
+{
+    Entity player;
+    Engine* engine;
+    FirstPersonCamera camera;
+
+    std::vector<std::thread> generator_workers;
+    std::thread tree_builder_worker;
+
+    uint32_t dummy_vao;
+    Octree octree;
+    float octree_rebuild_distance_treshold;
+    glm::vec3 octree_build_pos;
+    GpuBuffer vertex_buffer;
+    MemoryManager vertex_free_list;
+
+    std::unordered_map<packed_leaf3d_raw_t, size_t> loaded_chunk_to_cmd_idx_map;
+    std::unordered_map<size_t, packed_leaf3d_raw_t> loaded_cmd_idx_to_chunk_map;
+
+
+    std::vector<DrawArraysIndirectCommand> terrain_draw_cmds;
+    GpuBuffer terrain_draw_cmds_buffer;
+
+    ShaderProgram render_shader_program;
+};
+
+static void tree_builder(app_data_t* data)
+{
+    while (true)
+    {
+        std::unique_lock lock(tree_builder_mtx);
+        tree_builder_cv.wait(lock, [&]() {return tree_builder_state == builder_state::REQUEST; });
+        
+        octree_generate(tree_builder_info.tree, tree_builder_info.p);
+        tree_builder_state = builder_state::READY;
+
+        tree_builder_info.tree->ForEachLeafRemoved(
+            [&](packed_leaf3d_t leaf)
+            {
+                if (data->loaded_chunk_to_cmd_idx_map.find(leaf.packed) == data->loaded_chunk_to_cmd_idx_map.end())
+                {
+                    return;
+                }
+                size_t cmd_offset = data->loaded_chunk_to_cmd_idx_map[leaf.packed];
+
+                DrawArraysIndirectCommand cmd = data->terrain_draw_cmds[cmd_offset];
+                size_t swap_cmd_offset = data->terrain_draw_cmds.size() - 1;
+
+                packed_leaf3d_raw_t swap_leaf = data->loaded_cmd_idx_to_chunk_map[swap_cmd_offset];
+
+                data->terrain_draw_cmds[cmd_offset] = data->terrain_draw_cmds[swap_cmd_offset];
+                data->terrain_draw_cmds.pop_back();
+
+                data->loaded_chunk_to_cmd_idx_map.erase(leaf.packed);
+                data->loaded_cmd_idx_to_chunk_map.erase(swap_cmd_offset);
+
+                data->loaded_chunk_to_cmd_idx_map[swap_leaf] = cmd_offset;
+                data->loaded_cmd_idx_to_chunk_map[cmd_offset] = swap_leaf;
+
+                data->vertex_free_list.AddMemoryBlock(cmd.first * sizeof(glm::vec4), cmd.count * sizeof(glm::vec4));
+            }
+        );
+        data->vertex_free_list.Defragment();
+
+        data->octree.ForEachLeafAdded(
+            [&](packed_leaf3d_t leaf)
+            {
+                //printf("chunk request %i: %i, %i, %i\n", leaf.lod, leaf.x, leaf.y, leaf.z);
+                taskQueue.Enqueue({ leaf.x, leaf.y, leaf.z, leaf.lod });
+            }
+        );
+
+        tree_builder_state = builder_state::IDLE;
+    }
+}
+
+
+std::atomic_uint64_t working_threads = 0u;
+void data_generator()
+{
+    static int idGenerator = 0;
+    int id = idGenerator++;
+
+    ThreadGenerator generator;
+    generator.Init();
+    uint64_t thread_bit = 1u << uint64_t(id);
+
+    DataResult dataResult;
+    while (true)
+    {
+        glm::ivec4 chunkKey;
+        taskQueue.WaitAndDequeue(chunkKey);
+        working_threads.fetch_xor(thread_bit);
+
+        if (generator.LoadChunk(chunkKey, &dataResult))
+        {
+            dataResult.key = chunkKey;
+            ////printf("chunk loaded %i: %i, %i, %i\n", chunkKey.w, chunkKey.x, chunkKey.y, chunkKey.z);
+            resultQueue.Enqueue(&dataResult);
+
+            std::unique_lock lock(dataResult.mtx);
+            dataResult.cv.wait(lock, [&dataResult] {return dataResult.consumed; });
+        }
+        working_threads.fetch_xor(thread_bit);
+    }
+}
+
+class OnceGuard
+{
+public:
+    bool is_first(bool predicate)
+    {
+        bool is_active = predicate && !prev_predicate;
+        prev_predicate = predicate;
+        return is_active;
+    }
+private:
+    bool prev_predicate = false;
+};
+
+
+
+typedef struct App
+{
+    Engine engine;
+    app_data_t* data;
+} App;
+
+int frame_update(void* user_data)
+{
+    static uint64_t total_added = 0;
+    static uint64_t total_removed = 0;
+    app_data_t* data = reinterpret_cast<app_data_t*>(user_data);
+    FirstPersonCamera& cam = data->camera;
+    static OnceGuard click_guard;
+    static OnceGuard add_guard;
+    static OnceGuard sub_guard;
+    static OnceGuard treshold_guard;
+    static uint64_t frame_index = 0;
+
+
+    if (glfwGetKey(data->engine->window, GLFW_KEY_TAB) == GLFW_PRESS)
+        printf("add: %u, rem: %u, diff: %u\n", total_added, total_removed, total_added - total_removed);
+    frame_index++;
+    if(frame_index % 16 == 0) glfwSetWindowTitle(data->engine->window, std::format("{:.3f}ms\t FPS: {:.0f}", 1000 * data->engine->delta_time, 1 / data->engine->delta_time).c_str());
+    //if (add_guard.is_first(glfwGetKey(data->engine->window, GLFW_KEY_KP_ADD) == GLFW_PRESS))
+    //    octree_generate_max_depth++;
+    //if (sub_guard.is_first(glfwGetKey(data->engine->window, GLFW_KEY_KP_SUBTRACT) == GLFW_PRESS))
+    //    octree_generate_max_depth--;
+
+    glm::vec3 cam_pos = data->camera.GetPosition();
+    //if (glm::distance(data->octree_build_pos, cam_pos) > data->octree_rebuild_distance_treshold)
+
+    if(tree_builder_state == builder_state::IDLE)
+    for (int i = 0; i < 64; i++)
+    {
+        DataResult* result;
+        if (resultQueue.TryDequeue(result))
+        {
+            offset_t offset;
+            size_t size = result->size;
+            if (data->vertex_free_list.FindAndPopOffset(size, offset))
+            {
+                data->vertex_buffer.Upload(offset, size, result->addr);
+                DrawArraysIndirectCommand cmd;
+                cmd.baseInstance = 0;
+                cmd.count = size / sizeof(glm::vec4);
+                cmd.first = offset / sizeof(glm::vec4);
+                cmd.instanceCount = 1;
+
+                packed_leaf3d_t leaf_data;
+                leaf_data.x = result->key.x;
+                leaf_data.y = result->key.y;
+                leaf_data.z = result->key.z;
+                leaf_data.lod = result->key.w;
+
+                size_t cmd_idx = data->terrain_draw_cmds.size();
+                data->loaded_chunk_to_cmd_idx_map[leaf_data.packed] = cmd_idx;
+                data->loaded_cmd_idx_to_chunk_map[cmd_idx] = leaf_data.packed;
+
+                data->terrain_draw_cmds.push_back(cmd);
+                //printf("saved chunk %i: %i, %i, %i in offset %i, size %i\n", leaf_data.lod, leaf_data.x, leaf_data.y, leaf_data.z, offset, size);
+
+            }
+            else
+            {
+                //printf("not enough mem\n");
+            }
+            result->Consume();
+        }
+        else
+            break;
+    }
+
+    if (
+        (glm::distance(data->camera.GetPosition(), data->octree_build_pos) > data->octree_rebuild_distance_treshold ||
+            click_guard.is_first(glfwGetKey(data->engine->window, GLFW_KEY_B) == GLFW_PRESS)
+        ) &&
+        working_threads.load() == 0u && taskQueue.Size() == 0 && 
+        resultQueue.Size() == 0)
+    {
+        if (tree_builder_mtx.try_lock())
+        {
+            if (tree_builder_state == builder_state::IDLE)
+            {
+                tree_builder_info = { .p = cam_pos, .tree = &data->octree };
+                tree_builder_state = builder_state::REQUEST;
+                tree_builder_mtx.unlock();
+                data->octree_build_pos = cam_pos;
+                
+                tree_builder_cv.notify_one();
+            }
+            else
+                tree_builder_mtx.unlock();
+        }
+    }
+
+    double xpos = 0, ypos = 0;
+    glfwGetCursorPos(data->engine->window, &xpos, &ypos);
+    static double lastX = xpos, lastY = ypos;
+
+    float deltaX = (float)(xpos - lastX);
+    float deltaY = (float)(lastY - ypos);
+
+    lastX = xpos;
+    lastY = ypos;
+
+    static float camSpeed = 1.f;
+    float speed = data->engine->delta_time * camSpeed;
+    if (glfwGetKey(data->engine->window, GLFW_KEY_W) == GLFW_PRESS)
+        cam.Translate(speed *cam.GetForwardVector());
+    if (glfwGetKey(data->engine->window, GLFW_KEY_S) == GLFW_PRESS)
+        cam.Translate(-speed *cam.GetForwardVector());
+    if (glfwGetKey(data->engine->window, GLFW_KEY_A) == GLFW_PRESS)
+        cam.Translate(speed * glm::normalize(glm::cross(WorldDirection::Up, cam.GetForwardVector())));
+    if (glfwGetKey(data->engine->window, GLFW_KEY_D) == GLFW_PRESS)
+        cam.Translate(-speed * glm::normalize(glm::cross(WorldDirection::Up, cam.GetForwardVector())));
+
+    if (glfwGetKey(data->engine->window, GLFW_KEY_F) == GLFW_PRESS)
+        camSpeed *= glm::pow(8.0, data->engine->delta_time);
+    if (glfwGetKey(data->engine->window, GLFW_KEY_R) == GLFW_PRESS)
+        camSpeed /= glm::pow(8.0, data->engine->delta_time);
+    camSpeed = glm::max(camSpeed, 0.01f);
+
+    float sensitivity = 0.01f;
+    cam.Rotate(sensitivity * deltaX, sensitivity * deltaY);
+
+    ////printf("pos: %f, %f, %f dir: %f, %f, %f\n", 
+    //    cam.GetPosition().x, cam.GetPosition().y, cam.GetPosition().z, 
+    //    cam.GetForwardVector().x, cam.GetForwardVector().y, cam.GetForwardVector().z);
+    return 0;
+}
+
+int frame_render(Renderer* renderer, void* user_data)
+{
+    app_data_t* data = reinterpret_cast<app_data_t*>(user_data);
+    glClearColor(0.7f, 0.7f, 0.9f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    static bool draw_debug_chunks = false;
+
+    {
+        ShaderProgram& sp = data->render_shader_program;
+        sp.bind();
+        sp.uniform1ui("u_offset", 0u);
+        sp.uniformMat4("u_view_matrix", data->camera.GetViewMatrix());
+        sp.uniformMat4("u_proj_matrix", data->camera.GetProjectionMatrix());
+        
+        glBindVertexArray(data->dummy_vao);
+
+        sp.uniform1ui("u_render_cube", 1u);
+
+        if (draw_debug_chunks)
+            data->octree.ForEachNode(true, 
+                [&](packed_leaf3d_t leaf) 
+                {
+                    glm::vec4 xyz_size;
+                    xyz_size.w = OCTREE_SIZE / glm::pow(2, leaf.lod);
+                    xyz_size.x = leaf.x * xyz_size.w;
+                    xyz_size.y = leaf.y * xyz_size.w;
+                    xyz_size.z = leaf.z * xyz_size.w;
+                    sp.uniform4f("u_cube_xyz_size", xyz_size);
+                    glDrawArrays(GL_LINES, 0, 24);
+                }
+            );
+
+        sp.uniform1ui("u_render_triangle", 1u);
+        sp.uniform1ui("u_render_cube", 0u);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        sp.uniform1ui("u_render_triangle", 0u);
+
+
+
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, data->vertex_buffer.Handle());
+        
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, data->terrain_draw_cmds_buffer.Handle());
+
+        glBufferData(GL_DRAW_INDIRECT_BUFFER,
+            data->terrain_draw_cmds.size() * sizeof(DrawArraysIndirectCommand),
+            data->terrain_draw_cmds.data(),
+            GL_STREAM_DRAW);
+        
+        glMultiDrawArraysIndirect(GL_TRIANGLES, 0, data->terrain_draw_cmds.size(), sizeof(DrawArraysIndirectCommand));
+        glBindVertexArray(0);
+        sp.unbind();
+
+        /*
+        // 1. Start the ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // 2. Define your widget
+        static int counter = 0;
+
+        ImGui::Begin("Voxel Control Panel");                          // Create a window
+        ImGui::Text("This is a simple label.");                       // Display some text
+        if (ImGui::Button("Click Me")) {                              // Create a button
+            counter++;                                                // Logic when clicked
+        }
+        ImGui::SameLine();                                            // Put next widget on same line
+        ImGui::Text("Counter = %d", counter);
+        ImGui::End();                                                 // Close the window
+
+        // 3. Rendering
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        */
+    }
+
+    return 0;
+}
+
+int app_create(App* app)
+{
+    int width = 1920;
+    int height = 1080;
+    
+    app->data = new app_data_t;
+    if (!app->data)
+        return 1;
+
+    int engine_status = engine_init(&app->engine, frame_update, frame_render, app->data, width, height);
+    
+    for(int i = 0; i < std::thread::hardware_concurrency(); i++)
+        app->data->generator_workers.emplace_back(data_generator);
+    
+    
+    
+    glfwSwapInterval(0);
+
+    app_data_t* data = reinterpret_cast<app_data_t*>(app->data);
+    data->engine = &app->engine;
+    data->player.position = glm::vec3(0);
+    data->player.direction = glm::vec3(0);
+    data->player.velocity = glm::vec3(0);
+
+    data->octree.s = OCTREE_SIZE;
+
+    data->octree_rebuild_distance_treshold = 0.25f;
+    data->octree_build_pos = data->player.position + 2 * data->octree_rebuild_distance_treshold;
+    tree_builder_info.tree = &app->data->octree;
+    tree_builder_info.p = data->player.position;
+
+    app->data->tree_builder_worker = std::thread(tree_builder, data);
+    data->terrain_draw_cmds_buffer.Create();
+    
+    glCreateVertexArrays(1, &data->dummy_vao);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_CULL_FACE);
+    {
+        FirstPersonCameraSettings camera_settings;
+        camera_settings.position = { 0,0,0 };
+        camera_settings.direction = { 0,0,-1 };
+        camera_settings.farPlane = 16*2048.f;
+        camera_settings.nearPlane = 0.125f;
+        camera_settings.fov = 45.f;
+        camera_settings.width = width;
+        camera_settings.height = height;
+        data->camera.Init(camera_settings);
+    }
+
+    {
+        Shader vert;
+        Shader frag;
+        vert.createShader("shaders/default.vert", GL_VERTEX_SHADER);
+        frag.createShader("shaders/default.frag", GL_FRAGMENT_SHADER);
+        data->render_shader_program.createProgram(vert, frag);
+        vert.cleanup();
+        frag.cleanup();
+    }
+
+    data->vertex_buffer.Create();
+    data->vertex_buffer.Allocate(MB(512), nullptr, GL_STREAM_DRAW);
+    data->vertex_free_list.Init(data->vertex_buffer.SizeInBytes());
+    data->vertex_free_list.AddMemoryBlock(0, data->vertex_free_list.GetMaxSize());
+
+    return engine_status;
+}
+
+void app_run(App* app)
+{
+    engine_run(&app->engine);
+}
+
+void app_cleanup(App* app)
+{
+    engine_shutdown(&app->engine);
+
+    delete app->data;
+}
+
+int main(void)
+{
+    App app;
+    app_create(&app);
+    app_run(&app);
+    app_cleanup(&app);
+}

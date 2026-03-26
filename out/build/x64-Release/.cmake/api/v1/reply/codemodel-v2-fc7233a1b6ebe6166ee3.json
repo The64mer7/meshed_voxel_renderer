@@ -1,0 +1,328 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						4,
+						6
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Release-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.25"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						5
+					]
+				},
+				{
+					"build" : "dependencies/glfw",
+					"childIndexes" : 
+					[
+						2,
+						3
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-dependencies.glfw-Release-2953a0053a847e92cb01.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 1,
+					"source" : "dependencies/glfw",
+					"targetIndexes" : 
+					[
+						6
+					]
+				},
+				{
+					"build" : "dependencies/glfw/src",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-dependencies.glfw.src-Release-d5e9435668781b81f7a8.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4"
+					},
+					"parentIndex" : 1,
+					"projectIndex" : 1,
+					"source" : "dependencies/glfw/src",
+					"targetIndexes" : 
+					[
+						3,
+						7
+					]
+				},
+				{
+					"build" : "dependencies/glfw/docs",
+					"jsonFile" : "directory-dependencies.glfw.docs-Release-490cd529c1a3c3539758.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4"
+					},
+					"parentIndex" : 1,
+					"projectIndex" : 1,
+					"source" : "dependencies/glfw/docs"
+				},
+				{
+					"build" : "_deps/glm-build",
+					"childIndexes" : 
+					[
+						5
+					],
+					"jsonFile" : "directory-_deps.glm-build-Release-f002059c8ffad97f78e2.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.6"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 2,
+					"source" : "out/build/x64-Release/_deps/glm-src"
+				},
+				{
+					"build" : "_deps/glm-build/glm",
+					"jsonFile" : "directory-_deps.glm-build.glm-Release-c5c8467ffdf627a2395a.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.6"
+					},
+					"parentIndex" : 4,
+					"projectIndex" : 2,
+					"source" : "out/build/x64-Release/_deps/glm-src/glm",
+					"targetIndexes" : 
+					[
+						4
+					]
+				},
+				{
+					"build" : "_deps/fastnoise2-build",
+					"childIndexes" : 
+					[
+						7
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-_deps.fastnoise2-build-Release-181e9d5fac8849fdaa9c.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.14"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 3,
+					"source" : "out/build/x64-Release/_deps/fastnoise2-src"
+				},
+				{
+					"build" : "_deps/fastnoise2-build/src",
+					"childIndexes" : 
+					[
+						8
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-_deps.fastnoise2-build.src-Release-0747eca4ccd50363af8a.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.14"
+					},
+					"parentIndex" : 6,
+					"projectIndex" : 3,
+					"source" : "out/build/x64-Release/_deps/fastnoise2-src/src",
+					"targetIndexes" : 
+					[
+						0,
+						2
+					]
+				},
+				{
+					"build" : "_deps/fastsimd-build",
+					"childIndexes" : 
+					[
+						9
+					],
+					"jsonFile" : "directory-_deps.fastsimd-build-Release-f3f3eb1006aa71406515.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 7,
+					"projectIndex" : 4,
+					"source" : "out/build/x64-Release/_deps/fastsimd-src",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "_deps/fastsimd-build/dispatch",
+					"jsonFile" : "directory-_deps.fastsimd-build.dispatch-Release-be8e5673c93a342ec14e.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 8,
+					"projectIndex" : 4,
+					"source" : "out/build/x64-Release/_deps/fastsimd-src/dispatch"
+				}
+			],
+			"name" : "Release",
+			"projects" : 
+			[
+				{
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3
+					],
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "meshed_voxel_renderer",
+					"targetIndexes" : 
+					[
+						5
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						1,
+						2,
+						3
+					],
+					"name" : "GLFW",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						3,
+						6,
+						7
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						4,
+						5
+					],
+					"name" : "glm",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						4
+					]
+				},
+				{
+					"childIndexes" : 
+					[
+						4
+					],
+					"directoryIndexes" : 
+					[
+						6,
+						7
+					],
+					"name" : "FastNoise2",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						0,
+						2
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						8,
+						9
+					],
+					"name" : "FastSIMD",
+					"parentIndex" : 3,
+					"targetIndexes" : 
+					[
+						1
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 7,
+					"id" : "FastNoise::@6b1bf7fc44025bd8098e",
+					"jsonFile" : "target-FastNoise-Release-1f05344e495409ddb32f.json",
+					"name" : "FastNoise",
+					"projectIndex" : 3
+				},
+				{
+					"directoryIndex" : 8,
+					"id" : "FastSIMD::@6a824029d8a23c0cb0e8",
+					"jsonFile" : "target-FastSIMD-Release-c08d4bd72412343d44b7.json",
+					"name" : "FastSIMD",
+					"projectIndex" : 4
+				},
+				{
+					"directoryIndex" : 7,
+					"id" : "FastSIMD_FastNoise::@6b1bf7fc44025bd8098e",
+					"jsonFile" : "target-FastSIMD_FastNoise-Release-622cb27a3148a479d0de.json",
+					"name" : "FastSIMD_FastNoise",
+					"projectIndex" : 3
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "glfw::@e43ad0a4af27ecc346ee",
+					"jsonFile" : "target-glfw-Release-7b515b756c58a7802b31.json",
+					"name" : "glfw",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "glm::@ce54d98d7b326a3e12a8",
+					"jsonFile" : "target-glm-Release-fd62f32f9bcae7bbdc46.json",
+					"name" : "glm",
+					"projectIndex" : 2
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "meshed_voxel_renderer::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-meshed_voxel_renderer-Release-f675df4b3c0273e1e79b.json",
+					"name" : "meshed_voxel_renderer",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "uninstall::@37864a3f25feeb967066",
+					"jsonFile" : "target-uninstall-Release-e1eb1a9cf295374b3536.json",
+					"name" : "uninstall",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "update_mappings::@e43ad0a4af27ecc346ee",
+					"jsonFile" : "target-update_mappings-Release-eee8e313d9546c3acfed.json",
+					"name" : "update_mappings",
+					"projectIndex" : 1
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release",
+		"source" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}
