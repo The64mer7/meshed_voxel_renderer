@@ -31,7 +31,7 @@
 			{
 				"command" : 1,
 				"file" : 1,
-				"line" : 75,
+				"line" : 36,
 				"parent" : 0
 			},
 			{
@@ -43,13 +43,13 @@
 			{
 				"command" : 2,
 				"file" : 1,
-				"line" : 95,
+				"line" : 55,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 1,
-				"line" : 88,
+				"line" : 49,
 				"parent" : 0
 			}
 		]
@@ -91,10 +91,6 @@
 				{
 					"backtrace" : 4,
 					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/dependencies/glfw/include"
-				},
-				{
-					"backtrace" : 4,
-					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/dependencies/cglm/include"
 				},
 				{
 					"backtrace" : 3,
@@ -141,7 +137,7 @@
 		},
 		{
 			"backtrace" : 3,
-			"id" : "FastSIMD::@6a824029d8a23c0cb0e8"
+			"id" : "FastSIMD_FastNoise::@6b1bf7fc44025bd8098e"
 		},
 		{
 			"backtrace" : 3,
@@ -149,7 +145,7 @@
 		},
 		{
 			"backtrace" : 3,
-			"id" : "FastSIMD_FastNoise::@6b1bf7fc44025bd8098e"
+			"id" : "FastSIMD::@6a824029d8a23c0cb0e8"
 		}
 	],
 	"id" : "meshed_voxel_renderer::@6890427a1f51a3e7e1df",
