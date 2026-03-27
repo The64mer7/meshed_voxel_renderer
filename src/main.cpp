@@ -29,6 +29,8 @@
 #include <atomic>
 #include <format>
 
+#define MAKE_COLOR(r,g,b,a) ((uint32_t)(r) | ((uint32_t)(g) << 8) | ((uint32_t)(b) << 16) | ((uint32_t)(a) << 24))
+
 template<typename T>
 class ThreadSafeStack
 {
@@ -297,11 +299,11 @@ void SetupNoise() {
     sourceNode = FastNoise::New<FastNoise::Perlin>();
 
     noiseNode = FastNoise::New<FastNoise::FractalFBm>();
-
+    
     noiseNode->SetSource(sourceNode);
     noiseNode->SetOctaveCount(5);
-    noiseNode->SetLacunarity(2.0f);
-    noiseNode->SetGain(0.3f);
+    noiseNode->SetLacunarity(10.f);
+    noiseNode->SetGain(0.1f);
 }
 
 float WorldHeight(glm::vec3 p)
@@ -345,6 +347,11 @@ uint32_t WorldGenerator(glm::vec3 p)
     return WorldHeight(p) >= p.y;
 }
 
+float hash(float n) 
+{
+    return glm::fract(191122.518925 + glm::sin(n) * 43758.5453123);
+}
+
 std::vector<glm::vec4> spheresLoaded;
 class ThreadGenerator
 {
@@ -386,12 +393,24 @@ public:
     {
         // 8 is still very small for a 1024-sized world. 
         // Try 64 or 128 to actually see 'terrain'.
-        return 32.0f + (32.0f * v);
+        return 32.0f + (24.0f * v);
     }
-    float GetHeight(int x, int y) // -1 to m_ChunkAxisCount
+
+    float GetHeight(int x, int y, uint32_t* outColor) // -1 to m_ChunkAxisCount
     {
         x += 1; y += 1;
-        return ApplyAmplitude(m_HeightMap[x + (m_ChunkAxisCount+2) * y]);
+        float h = ApplyAmplitude(m_HeightMap[x + (m_ChunkAxisCount+2) * y]);
+
+        float rand0 = (hash(h) - 0.5f) * 8;
+        float rand1 = (hash(rand0) - 0.5f) * 10;
+        float rand2 = (hash(rand1) - 0.5f) * 4;
+        
+
+        if (h <= 20) *outColor =        MAKE_COLOR(160 + rand0, 150 + rand0, 245 + rand0, 255);
+        else if (h <= 32) *outColor =   MAKE_COLOR(200 + rand0, 240 + rand0, 190 + rand0, 255);
+        else *outColor =                MAKE_COLOR(245 + rand1, 245 + rand1, 245 + rand1, 255);
+
+        return glm::max(20.f, h);
     }
 
     bool LoadChunk(glm::ivec4 chunkLod, DataResult* outResult)
@@ -415,7 +434,8 @@ public:
         for (uint32_t z = 0; z < m_ChunkAxisCount; z++)
             for (uint32_t x = 0; x < m_ChunkAxisCount; x++)
             {
-                float h = GetHeight(x, z);
+                uint32_t col;
+                float h = GetHeight(x, z, &col);
                 glm::vec3 voxelOrigin = chunkOrigin + glm::vec3(x,0,z) * voxelSize;
                 for (int i = 0; i < spheresLoaded.size(); ++i)
                 {
@@ -457,7 +477,8 @@ public:
                         int32_t nx = x + idelta.x;
                         int32_t nz = z + idelta.z;
 
-                        float nh = GetHeight(nx, nz);
+                        uint32_t ncol;
+                        float nh = GetHeight(nx, nz, &ncol);
                         for (int i = 0; i < spheresLoaded.size(); ++i)
                         {
                             glm::vec4 sp = spheresLoaded[i];
@@ -479,10 +500,11 @@ public:
                             {
                                 glm::ivec2 mask = { f % 2, f / 2 };
                                 glm::vec3 offset(0.f);
+                             
                                 offset[axes.x] = mask.x;
                                 offset[axes.y] = mask.y;
 
-                                face[f] = glm::vec4(currFaceOrigin + voxelSize * offset, 0.f);
+                                face[f] = glm::vec4(currFaceOrigin + voxelSize * offset, std::bit_cast<float>(col));
                             }
                             m_StagingVertices.push_back(face[0]);
                             m_StagingVertices.push_back(face[positive ? 1 : 2]);
@@ -784,7 +806,7 @@ int frame_update(void* user_data)
 
     lastX = xpos;
     lastY = ypos;
-
+    
     static float camSpeed = 1.f;
     float speed = data->engine->delta_time * camSpeed;
     if (glfwGetKey(data->engine->window, GLFW_KEY_W) == GLFW_PRESS)
@@ -795,6 +817,11 @@ int frame_update(void* user_data)
         cam.Translate(speed * glm::normalize(glm::cross(WorldDirection::Up, cam.GetForwardVector())));
     if (glfwGetKey(data->engine->window, GLFW_KEY_D) == GLFW_PRESS)
         cam.Translate(-speed * glm::normalize(glm::cross(WorldDirection::Up, cam.GetForwardVector())));
+
+    if (glfwGetKey(data->engine->window, GLFW_KEY_SPACE) == GLFW_PRESS)
+        cam.Translate(speed * WorldDirection::Up*1.0f);
+    if (glfwGetKey(data->engine->window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+        cam.Translate(-speed * WorldDirection::Up);
 
     if (glfwGetKey(data->engine->window, GLFW_KEY_F) == GLFW_PRESS)
         camSpeed *= glm::pow(8.0, data->engine->delta_time);
@@ -823,7 +850,10 @@ int frame_render(Renderer* renderer, void* user_data)
         sp.bind();
         sp.uniform1ui("u_offset", 0u);
         sp.uniformMat4("u_view_matrix", data->camera.GetViewMatrix());
-        sp.uniformMat4("u_proj_matrix", data->camera.GetProjectionMatrix());
+        if(glfwGetKey(data->engine->window, GLFW_KEY_C) == GLFW_PRESS)
+            sp.uniformMat4("u_proj_matrix", data->camera.GetOrthoProjectionMatrix());
+        else
+            sp.uniformMat4("u_proj_matrix", data->camera.GetProjectionMatrix());
         
         glBindVertexArray(data->dummy_vao);
 

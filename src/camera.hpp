@@ -45,7 +45,17 @@ public:
 
 	void SetProjection(const FirstPersonCameraSettings& settings)
 	{
-		m_ProjectionMatrix = glm::perspective(settings.fov, settings.width / settings.height, settings.nearPlane, settings.farPlane);
+		float aspect = settings.width / settings.height;
+		m_ProjectionMatrix = glm::perspective(settings.fov, aspect, settings.nearPlane, settings.farPlane);
+		
+		float ortho_height = 20.f;
+		float ortho_width = aspect * ortho_height;
+		m_OrthoProjectionMatrix = glm::ortho(
+			-ortho_width,
+			ortho_width,
+			-ortho_height,
+			ortho_height,
+			-settings.farPlane, settings.farPlane);
 	}
 
 	void Translate(glm::vec3 v)
@@ -84,6 +94,11 @@ public:
 		return m_ProjectionMatrix;
 	}
 
+	glm::mat4 GetOrthoProjectionMatrix()
+	{
+		return m_OrthoProjectionMatrix;
+	}
+
 	void Rotate(float deltaYaw, float deltaPitch)
 	{
 		m_Yaw += deltaYaw;
@@ -95,4 +110,5 @@ private:
 	glm::vec3 m_Position;
 	float m_Yaw, m_Pitch;
 	glm::mat4 m_ProjectionMatrix;
+	glm::mat4 m_OrthoProjectionMatrix;
 };

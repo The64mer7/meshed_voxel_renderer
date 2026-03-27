@@ -20,6 +20,7 @@ uniform mat4 u_proj_matrix;
 
 out vec3 v_world_pos;
 
+out flat vec3 vox_color;
 out flat uint draw_id;
 
 vec3 cube_vertex(uint id)
@@ -65,7 +66,14 @@ void main()
         if(u_render_triangle == 1u)
             v_world_pos = triangle[gl_VertexID].xyz;
         else
-            v_world_pos = vertices[gl_VertexID].xyz;
+        {
+            vec4 vert = vertices[gl_VertexID];
+            v_world_pos = vert.xyz;
+            uint bits = floatBitsToUint(vert.w);
+            vox_color.r = (255u & (bits >> 0)) / 255.f;
+            vox_color.g = (255u & (bits >> 8)) / 255.f;
+            vox_color.b = (255u & (bits >> 16)) / 255.f;
+        }
     }
 
     gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos, 1.0);
