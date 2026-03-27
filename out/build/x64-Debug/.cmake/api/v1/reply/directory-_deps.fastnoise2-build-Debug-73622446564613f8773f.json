@@ -1,0 +1,113 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"install"
+		],
+		"files" : 
+		[
+			"out/build/x64-Debug/_deps/fastnoise2-src/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 111,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 124,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 131,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 153,
+				"parent" : 0
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 1,
+			"component" : "Unspecified",
+			"destination" : "lib",
+			"paths" : 
+			[
+				"_deps/fastnoise2-build/src/FastNoiseD.lib"
+			],
+			"targetId" : "FastNoise::@6b1bf7fc44025bd8098e",
+			"targetIndex" : 0,
+			"type" : "target"
+		},
+		{
+			"backtrace" : 2,
+			"component" : "Unspecified",
+			"destination" : "lib/cmake/FastNoise2",
+			"paths" : 
+			[
+				"out/build/x64-Debug/_deps/fastnoise2-build/generated/FastNoise2Config.cmake",
+				"out/build/x64-Debug/_deps/fastnoise2-build/generated/FastNoise2ConfigVersion.cmake"
+			],
+			"type" : "file"
+		},
+		{
+			"backtrace" : 3,
+			"component" : "Unspecified",
+			"destination" : "lib/cmake/FastNoise2",
+			"exportName" : "FastNoise2Targets",
+			"exportTargets" : 
+			[
+				{
+					"id" : "FastNoise::@6b1bf7fc44025bd8098e",
+					"index" : 0
+				},
+				{
+					"id" : "FastSIMD::@6a824029d8a23c0cb0e8",
+					"index" : 1
+				},
+				{
+					"id" : "FastSIMD_FastNoise::@6b1bf7fc44025bd8098e",
+					"index" : 2
+				}
+			],
+			"paths" : 
+			[
+				"_deps/fastnoise2-build/CMakeFiles/Export/685b7b2fe36c8f3a2e6ec6f0a6279b14/FastNoise2Targets.cmake"
+			],
+			"type" : "export"
+		},
+		{
+			"backtrace" : 4,
+			"component" : "Unspecified",
+			"destination" : "lib",
+			"paths" : 
+			[
+				{
+					"from" : "out/build/x64-Debug/_deps/fastnoise2-build/pdb-files/",
+					"to" : "."
+				}
+			],
+			"type" : "directory"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "_deps/fastnoise2-build",
+		"source" : "out/build/x64-Debug/_deps/fastnoise2-src"
+	}
+}

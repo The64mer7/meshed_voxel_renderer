@@ -1,0 +1,21 @@
+# ninja log v5
+2	47	7963230068533171	glm-populate-prefix/src/glm-populate-stamp/glm-populate-mkdir	cb49f778c4666ba9
+2	47	7963230068533171	C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-mkdir	cb49f778c4666ba9
+47	5572	7963230123768326	glm-populate-prefix/src/glm-populate-stamp/glm-populate-download	65cc2e0b4eab5a33
+47	5572	7963230123768326	C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-download	65cc2e0b4eab5a33
+5572	5671	0	glm-populate-prefix/src/glm-populate-stamp/glm-populate-update	2c7dd9d6a88dffe4
+5572	5671	0	C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-update	2c7dd9d6a88dffe4
+5671	5718	7963230125251639	glm-populate-prefix/src/glm-populate-stamp/glm-populate-patch	1bafa796f5c67135
+5671	5718	7963230125251639	C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-patch	1bafa796f5c67135
+5718	5768	7963230125774226	glm-populate-prefix/src/glm-populate-stamp/glm-populate-configure	e9e2aa480fd17ddd
+5718	5768	7963230125774226	C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-configure	e9e2aa480fd17ddd
+5768	5813	7963230126158648	glm-populate-prefix/src/glm-populate-stamp/glm-populate-build	a1e2e33033d7bb04
+5768	5813	7963230126158648	C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-build	a1e2e33033d7bb04
+5813	5854	7963230126599792	glm-populate-prefix/src/glm-populate-stamp/glm-populate-install	4056509c64b4dd4b
+5813	5854	7963230126599792	C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-install	4056509c64b4dd4b
+5854	5896	7963230127069771	glm-populate-prefix/src/glm-populate-stamp/glm-populate-test	1819e616f7561971
+5854	5896	7963230127069771	C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-test	1819e616f7561971
+5896	5950	7963230127541114	CMakeFiles/glm-populate-complete	fba962c9fe86a94a
+5896	5950	7963230127541114	glm-populate-prefix/src/glm-populate-stamp/glm-populate-done	fba962c9fe86a94a
+5896	5950	7963230127541114	C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-subbuild/CMakeFiles/glm-populate-complete	fba962c9fe86a94a
+5896	5950	7963230127541114	C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-done	fba962c9fe86a94a
