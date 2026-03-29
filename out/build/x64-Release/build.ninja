@@ -47,7 +47,7 @@ cmake_ninja_workdir = C$:\Users\jaros\Desktop\Programming\COpenglProject\meshed_
 #############################################
 # Order-only phony target for meshed_voxel_renderer
 
-build cmake_object_order_depends_target_meshed_voxel_renderer: phony || cmake_object_order_depends_target_FastNoise cmake_object_order_depends_target_FastSIMD cmake_object_order_depends_target_FastSIMD_FastNoise cmake_object_order_depends_target_glfw cmake_object_order_depends_target_glm
+build cmake_object_order_depends_target_meshed_voxel_renderer: phony || cmake_object_order_depends_target_FastNoise cmake_object_order_depends_target_FastSIMD cmake_object_order_depends_target_FastSIMD_FastNoise cmake_object_order_depends_target_glfw cmake_object_order_depends_target_glm update_shaders
 
 build CMakeFiles\meshed_voxel_renderer.dir\src\glad_impl.cpp.obj: CXX_COMPILER__meshed_voxel_renderer_unscanned_Release C$:\Users\jaros\Desktop\Programming\COpenglProject\meshed_voxel_renderer\src\glad_impl.cpp || cmake_object_order_depends_target_meshed_voxel_renderer
   DEFINES = -DFASTNOISE2_VERSION=\"1.1.1\" -DFASTNOISE_STATIC_LIB -DFASTSIMD_IS_RELAXED=1 -DFASTSIMD_STATIC_LIB
@@ -75,17 +75,23 @@ build CMakeFiles\meshed_voxel_renderer.dir\src\main.cpp.obj: CXX_COMPILER__meshe
 #############################################
 # Link the executable meshed_voxel_renderer.exe
 
-build meshed_voxel_renderer.exe: CXX_EXECUTABLE_LINKER__meshed_voxel_renderer_Release CMakeFiles\meshed_voxel_renderer.dir\src\glad_impl.cpp.obj CMakeFiles\meshed_voxel_renderer.dir\src\main.cpp.obj | dependencies\glfw\src\glfw3.lib _deps\glm-build\glm\glm.lib _deps\fastnoise2-build\src\FastNoise.lib || _deps\fastnoise2-build\src\FastNoise.lib _deps\fastnoise2-build\src\FastSIMD_FastNoise _deps\fastsimd-build\FastSIMD _deps\glm-build\glm\glm.lib dependencies\glfw\src\glfw3.lib
+build meshed_voxel_renderer.exe: CXX_EXECUTABLE_LINKER__meshed_voxel_renderer_Release CMakeFiles\meshed_voxel_renderer.dir\src\glad_impl.cpp.obj CMakeFiles\meshed_voxel_renderer.dir\src\main.cpp.obj | dependencies\glfw\src\glfw3.lib _deps\glm-build\glm\glm.lib _deps\fastnoise2-build\src\FastNoise.lib || _deps\fastnoise2-build\src\FastNoise.lib _deps\fastnoise2-build\src\FastSIMD_FastNoise _deps\fastsimd-build\FastSIMD _deps\glm-build\glm\glm.lib dependencies\glfw\src\glfw3.lib update_shaders
   FLAGS = /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -MD
   LINK_FLAGS = /machine:x64 /INCREMENTAL:NO /subsystem:console
   LINK_LIBRARIES = dependencies\glfw\src\glfw3.lib  opengl32.lib  _deps\glm-build\glm\glm.lib  _deps\fastnoise2-build\src\FastNoise.lib  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
   OBJECT_DIR = CMakeFiles\meshed_voxel_renderer.dir
-  POST_BUILD = C:\WINDOWS\system32\cmd.exe /C "cd /D C:\Users\jaros\Desktop\Programming\COpenglProject\meshed_voxel_renderer\out\build\x64-Release && C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -noprofile -executionpolicy Bypass -file C:/vcpkg/scripts/buildsystems/msbuild/applocal.ps1 -targetBinary C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/meshed_voxel_renderer.exe -installedDir C:/vcpkg/installed/x64-windows/bin -OutVariable out && cd /D C:\Users\jaros\Desktop\Programming\COpenglProject\meshed_voxel_renderer\out\build\x64-Release && "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E make_directory C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/shaders && "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E copy_directory C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/shaders C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/shaders"
+  POST_BUILD = C:\WINDOWS\system32\cmd.exe /C "cd /D C:\Users\jaros\Desktop\Programming\COpenglProject\meshed_voxel_renderer\out\build\x64-Release && C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -noprofile -executionpolicy Bypass -file C:/vcpkg/scripts/buildsystems/msbuild/applocal.ps1 -targetBinary C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/meshed_voxel_renderer.exe -installedDir C:/vcpkg/installed/x64-windows/bin -OutVariable out"
   PRE_LINK = cd .
   TARGET_COMPILE_PDB = CMakeFiles\meshed_voxel_renderer.dir\
   TARGET_FILE = meshed_voxel_renderer.exe
   TARGET_IMPLIB = meshed_voxel_renderer.lib
   TARGET_PDB = meshed_voxel_renderer.pdb
+
+
+#############################################
+# Utility command for update_shaders
+
+build update_shaders: phony CMakeFiles\update_shaders
 
 
 #############################################
@@ -139,6 +145,14 @@ build CMakeFiles\install\local.util: CUSTOM_COMMAND all
   restat = 1
 
 build install\local: phony CMakeFiles\install\local.util
+
+
+#############################################
+# Custom command for CMakeFiles\update_shaders
+
+build CMakeFiles\update_shaders | ${cmake_ninja_workdir}CMakeFiles\update_shaders: CUSTOM_COMMAND
+  COMMAND = C:\WINDOWS\system32\cmd.exe /C "cd /D C:\Users\jaros\Desktop\Programming\COpenglProject\meshed_voxel_renderer\out\build\x64-Release && "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E make_directory C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/shaders && "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E copy_directory C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/shaders C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/shaders"
+  DESC = Checking/Copying shaders...
 
 # =============================================================================
 # Write statements declared in CMakeLists.txt:
@@ -1104,7 +1118,7 @@ build update_mappings: phony dependencies\glfw\src\update_mappings
 #############################################
 # Folder: C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release
 
-build all: phony meshed_voxel_renderer.exe dependencies\glfw\all _deps\glm-build\all _deps\fastnoise2-build\all
+build all: phony meshed_voxel_renderer.exe update_shaders dependencies\glfw\all _deps\glm-build\all _deps\fastnoise2-build\all
 
 # =============================================================================
 

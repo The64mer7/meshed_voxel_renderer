@@ -1,4 +1,5 @@
 C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/meshed_voxel_renderer.dir
+C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/update_shaders.dir
 C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/edit_cache.dir
 C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/rebuild_cache.dir
 C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/list_install_components.dir

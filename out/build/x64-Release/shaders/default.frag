@@ -6,6 +6,8 @@ in vec3 v_world_pos;
 in flat uint draw_id;
 uniform uint u_render_cube;
 in flat vec3 vox_color;
+in flat ivec4 chunk_data;
+
 
 vec3 sun_dir = normalize(vec3(0.2,0.6,0.7));
 vec3 terrain_color = vec3(0.6,0.9,0.7);
@@ -26,4 +28,5 @@ void main()
 	FragColor = vec4(diffuse, 1);
 	if(u_render_cube == 1u)
 		FragColor = vec4(1,0,0,1);
+	//FragColor = mod(vec4(chunk_data), 2.f) / vec4(vec3(2), 2.f);
 }
