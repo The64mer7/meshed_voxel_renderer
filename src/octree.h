@@ -4,6 +4,8 @@
 #include <unordered_set>
 #include <functional>
 #include "tree_node.h"
+#include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
 
 bool IntersectSphereAABB3D(
     float sX, float sY, float sZ, float radius,
@@ -29,18 +31,24 @@ bool IntersectSphereAABB3D(
     return distanceSquared < 0;
 }
 
-typedef uint64_t packed_leaf3d_raw_t;
+typedef glm::ivec4 packed_leaf3d_raw_t;
+
 union packed_leaf3d_t
 {
     packed_leaf3d_raw_t packed;
     struct
     {
-        int64_t x : 16;
-        int64_t y : 16;
-        int64_t z : 16;
-        int64_t lod : 16;
+        int32_t x :     32;
+        int32_t y :     32;
+        int32_t z :     32;
+        int32_t lod :   32;
     };
 };
+
+inline bool operator==(const packed_leaf3d_t& lhs, const packed_leaf3d_t& rhs) {
+    return lhs.packed == rhs.packed;
+}
+
 class Octree
 {
     std::unordered_set<packed_leaf3d_raw_t> m_curr_leaves;
@@ -68,7 +76,7 @@ public:
             float depth;
         };
         std::stack<StackItem> stack;
-        StackItem root_item = { &root, 0, px, py, pz, s, 0 };
+        StackItem root_item = { &root, glm::ivec4(0), px, py, pz, s, 0 };
         stack.push(root_item);
 
         while (!stack.empty())
@@ -173,9 +181,11 @@ public:
         };
 
         std::stack<StackItem> stack;
-        stack.push({ &root, px, py, pz, s, 0 });
+        stack.push({ &root, px, py, pz, s, glm::ivec4(0) });
         int drawCount = 0;
-        fn_for_each({ 0 });
+        packed_leaf3d_t root_leaf;
+        root_leaf.packed = glm::ivec4(0);
+        fn_for_each(root_leaf);
         while (!stack.empty())
         {
             StackItem item = stack.top();
@@ -216,6 +226,7 @@ public:
         }
         return drawCount;
     }
+
 
     void ForEachLeafAdded(std::function<void(packed_leaf3d_t)> fn_for_each)
     {

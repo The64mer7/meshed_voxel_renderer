@@ -88,6 +88,12 @@ public:
 		m_Queue.pop();
 	}
 
+	void Clear()
+	{
+		std::unique_lock lock(m_Mtx);
+		m_Queue = std::queue<T>();
+	}
+
 	size_t Size()
 	{
 		std::unique_lock lock(m_Mtx);
