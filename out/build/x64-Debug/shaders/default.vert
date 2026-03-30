@@ -72,7 +72,11 @@ void main()
     else
     {
         if(u_render_triangle == 1u)
+        {
             v_world_pos = triangle[gl_VertexID].xyz;
+            gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos, 1.0);
+            return;
+        }
         else
         {
             chunk_data = chunks[gl_DrawID];
@@ -98,7 +102,6 @@ void main()
 
             gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos, 1.0);
             return;
-
         }
     }
 

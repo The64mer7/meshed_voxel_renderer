@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stdio.h>
 #include <stack>
 #include <unordered_set>
@@ -222,6 +223,242 @@ public:
                             continue;
 
                         stack.push({ child, cx, cy, cz, cs, leaf.packed });
+                    }
+        }
+        return drawCount;
+    }
+
+
+    void ForEachLeafAdded(std::function<void(packed_leaf3d_t)> fn_for_each)
+    {
+        for (packed_leaf3d_raw_t leaf_raw : m_curr_leaves)
+        {
+            packed_leaf3d_t leaf = { leaf_raw };
+            if (m_prev_leaves.find(leaf_raw) == m_prev_leaves.end())
+            {
+                //float size = powf(0.5f, leaf.lod) * s;
+                //float x = px + size * leaf.x;
+                //float y = py + size * leaf.y;
+                //float z = pz + size * leaf.z;
+                fn_for_each(leaf);
+            }
+        }
+    }
+
+    void ForEachLeafRemoved(std::function<void(packed_leaf3d_t)> fn_for_each)
+    {
+        for (packed_leaf3d_raw_t leaf_raw : m_prev_leaves)
+        {
+            packed_leaf3d_t leaf = { leaf_raw };
+            if (m_curr_leaves.find(leaf_raw) == m_curr_leaves.end())
+            {
+                //float size = powf(0.5f, leaf.lod) * s;
+                //float x = px + size * leaf.x;
+                //float y = py + size * leaf.y;
+                //float z = pz + size * leaf.z;
+                fn_for_each(leaf);
+            }
+        }
+    }
+};
+
+constexpr uint64_t invalid_id = UINT64_MAX;
+struct FlatOctreeNode
+{
+    uint64_t children[8] = { invalid_id ,invalid_id ,invalid_id ,invalid_id ,invalid_id ,invalid_id ,invalid_id ,invalid_id };
+    bool is_leaf = true;
+};
+
+class FlatOctree
+{
+    std::unordered_set<packed_leaf3d_raw_t> m_curr_leaves;
+    std::unordered_set<packed_leaf3d_raw_t> m_prev_leaves;
+
+
+public:
+
+    std::vector<FlatOctreeNode> nodes;
+
+    float px = 0.f, py = 0.f, pz = 0.f, s = 1024.f;
+
+    void Generate(uint64_t min_depth, uint64_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, float intensity)
+    {
+        nodes.clear();
+
+        m_prev_leaves = std::move(m_curr_leaves);
+        m_curr_leaves.clear();
+
+        struct StackItem
+        {
+            uint64_t parent_idx;
+            uint8_t parent_spatial_idx;
+            packed_leaf3d_t leaf_data;
+            float px, py, pz, size;
+            float depth;
+        };
+        std::stack<StackItem> stack;
+        StackItem root_item = { invalid_id, 0, glm::ivec4(0), px, py, pz, s, 0};
+        stack.push(root_item);
+
+        while (!stack.empty())
+        {
+            StackItem parent = stack.top();
+            stack.pop();
+
+            uint64_t node_idx = nodes.size();
+            nodes.push_back(FlatOctreeNode());
+
+            if (parent.depth >= max_depth)
+            {
+                m_curr_leaves.insert(parent.leaf_data.packed);
+                continue;
+            }
+
+            float child_size = parent.size * 0.5f;
+            
+            bool has_children = false;
+            for (int z = 0; z < 2; z++)
+                for (int y = 0; y < 2; y++)
+                    for (int x = 0; x < 2; x++)
+                    {
+                        float cx = parent.px + child_size * x;
+                        float cy = parent.py + child_size * y;
+                        float cz = parent.pz + child_size * z;
+                        float dist2;
+                        bool closer = IntersectSphereAABB3D(circle_x, circle_y, circle_z, radius, cx, cy, cz, cx + child_size, cy + child_size, cz + child_size, &dist2);
+                        bool further = IntersectSphereAABB3D(circle_x, circle_y, circle_z, further_radius, cx, cy, cz, cx + child_size, cy + child_size, cz + child_size);
+
+                        packed_leaf3d_t leaf;
+                        leaf = parent.leaf_data;
+                        leaf.lod += 1;
+                        leaf.x = (leaf.x << 1) | x;
+                        leaf.y = (leaf.y << 1) | y;
+                        leaf.z = (leaf.z << 1) | z;
+
+                        if (!further && !closer && parent.depth >= min_depth)
+                        {
+                            m_curr_leaves.insert(leaf.packed);
+                            continue;
+                        }
+
+                        float target_depth;
+                        if (closer)
+                        {
+                            target_depth = (float)max_depth;
+                        }
+                        else
+                        {
+                            float max_dist = further_radius - radius;
+                            float current_dist = sqrtf(dist2);
+                            float relative_dist = (current_dist - radius) / (further_radius - radius);
+
+                            float log_t = std::log(1.0f + relative_dist * intensity) / std::log(1.0f + intensity);
+
+                            float t = 1.f - log_t;
+
+                            target_depth = t * (float)max_depth;
+                        }
+
+
+
+                        if (parent.depth < target_depth || parent.depth < min_depth)
+                        {
+
+                            has_children = true;
+                            StackItem child_item;
+                            child_item.depth = parent.depth + 1;
+                            child_item.size = child_size;
+                            child_item.px = cx;
+                            child_item.py = cy;
+                            child_item.pz = cz;
+                            child_item.leaf_data = leaf;
+                            child_item.parent_spatial_idx = x + 2 * y + 4 * z;
+                            child_item.parent_idx = node_idx;
+                            stack.push(child_item);
+                        }
+                        else
+                            m_curr_leaves.insert(leaf.packed);
+                    }
+
+            if (has_children && parent.parent_idx != invalid_id)
+            {
+                nodes[parent.parent_idx].is_leaf = false;
+                nodes[parent.parent_idx].children[parent.parent_spatial_idx] = node_idx;
+            }
+
+        }
+#if 1
+        uint64_t unload_count = 0;
+        uint64_t load_count = 0;
+        for (packed_leaf3d_raw_t leaf_raw : m_prev_leaves)
+        {
+            packed_leaf3d_t leaf = { leaf_raw };
+            if (m_curr_leaves.find(leaf_raw) == m_curr_leaves.end())
+                unload_count++;
+            //printf("unload %i, %i, lod: %i\n", leaf.x, leaf.y, leaf.lod);
+        }
+        for (packed_leaf3d_raw_t leaf_raw : m_curr_leaves)
+        {
+            packed_leaf3d_t leaf = { leaf_raw };
+            if (m_prev_leaves.find(leaf_raw) == m_prev_leaves.end())
+                load_count++;
+            //printf("load %i, %i, lod: %i\n", leaf.x, leaf.y, leaf.lod);
+        }
+        //printf("load: %i, unload: %i\n", load_count, unload_count);
+#endif
+
+
+    }
+
+    int ForEachNode(bool include_leafs, std::function<void(packed_leaf3d_t)> fn_for_each)
+    {
+
+        struct StackItem
+        {
+            uint64_t index;
+            float px, py, pz, s;
+            packed_leaf3d_raw_t leaf;
+        };
+
+        std::stack<StackItem> stack;
+        stack.push({ 0, px, py, pz, s, glm::ivec4(0) });
+        int drawCount = 0;
+        packed_leaf3d_t root_leaf;
+        root_leaf.packed = glm::ivec4(0);
+        fn_for_each(root_leaf);
+        while (!stack.empty())
+        {
+            StackItem item = stack.top();
+            stack.pop();
+            if (item.index == -1)
+                continue;
+
+            if (!include_leafs)
+                fn_for_each({ item.leaf });
+            float cs = item.s * 0.5f;
+            for (int z = 0; z < 2; z++)
+                for (int y = 0; y < 2; y++)
+                    for (int x = 0; x < 2; x++)
+                    {
+                        float cx = item.px + cs * x;
+                        float cy = item.py + cs * y;
+                        float cz = item.pz + cs * z;
+
+                        packed_leaf3d_t leaf;
+                        leaf.packed = item.leaf;
+                        leaf.lod += 1;
+                        leaf.x = (leaf.x << 1) | x;
+                        leaf.y = (leaf.y << 1) | y;
+                        leaf.z = (leaf.z << 1) | z;
+
+                        if (include_leafs)
+                        {
+                            fn_for_each(leaf);
+                        }
+                        drawCount++;
+                        uint64_t child_index = nodes[item.index].children[x + 2 * y + 4 * z];
+
+                        stack.push({ child_index, cx, cy, cz, cs, leaf.packed });
                     }
         }
         return drawCount;

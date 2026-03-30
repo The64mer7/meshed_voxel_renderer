@@ -13,9 +13,15 @@ vec3 sun_dir = normalize(vec3(0.2,0.6,0.7));
 vec3 terrain_color = vec3(0.6,0.9,0.7);
 vec3 water_color = vec3(0.6,0.6,0.9);
 vec3 snow_color = vec3(1.0);
+uniform uint u_render_triangle;
 
 void main()
 {
+	if(u_render_triangle == 1u)
+	{
+		FragColor = vec4(1,0,0,1);
+		return;
+	}
 	vec3 dx = dFdx(v_world_pos);
 	vec3 dy = dFdy(v_world_pos);
 

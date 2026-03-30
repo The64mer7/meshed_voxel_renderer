@@ -12,7 +12,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "_deps/fastnoise2-build/src/FastNoise.lib"
+			"path" : "_deps/fastnoise2-build/src/FastNoiseD.lib"
 		}
 	],
 	"backtrace" : 2,
@@ -31,8 +31,8 @@
 		"files" : 
 		[
 			"C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
-			"out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt",
-			"out/build/x64-Release/_deps/fastnoise2-src/CMakeLists.txt"
+			"out/build/x64-Debug/_deps/fastnoise2-src/src/CMakeLists.txt",
+			"out/build/x64-Debug/_deps/fastnoise2-src/CMakeLists.txt"
 		],
 		"nodes" : 
 		[
@@ -104,7 +104,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "/DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -std:c++17 -MD"
+					"fragment" : "/DWIN32 /D_WINDOWS /EHsc /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi"
 				},
 				{
 					"backtrace" : 6,
@@ -138,15 +138,15 @@
 			[
 				{
 					"backtrace" : 10,
-					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/fastnoise2-src/include"
+					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/fastnoise2-src/include"
 				},
 				{
 					"backtrace" : 5,
-					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/fastsimd-src/include"
+					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/fastsimd-src/include"
 				},
 				{
 					"backtrace" : 5,
-					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/fastnoise2-build/src/fastsimd/FastSIMD_FastNoise/include"
+					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/fastnoise2-build/src/fastsimd/FastSIMD_FastNoise/include"
 				}
 			],
 			"language" : "CXX",
@@ -170,11 +170,11 @@
 	[
 		{
 			"backtrace" : 5,
-			"id" : "FastSIMD_FastNoise::@6b1bf7fc44025bd8098e"
+			"id" : "FastSIMD::@6a824029d8a23c0cb0e8"
 		},
 		{
 			"backtrace" : 5,
-			"id" : "FastSIMD::@6a824029d8a23c0cb0e8"
+			"id" : "FastSIMD_FastNoise::@6b1bf7fc44025bd8098e"
 		}
 	],
 	"id" : "FastNoise::@6b1bf7fc44025bd8098e",
@@ -189,15 +189,15 @@
 		],
 		"prefix" : 
 		{
-			"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/install/x64-Release"
+			"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/install/x64-Debug"
 		}
 	},
 	"name" : "FastNoise",
-	"nameOnDisk" : "FastNoise.lib",
+	"nameOnDisk" : "FastNoiseD.lib",
 	"paths" : 
 	{
 		"build" : "_deps/fastnoise2-build/src",
-		"source" : "out/build/x64-Release/_deps/fastnoise2-src/src"
+		"source" : "out/build/x64-Debug/_deps/fastnoise2-src/src"
 	},
 	"sourceGroups" : 
 	[
@@ -271,215 +271,215 @@
 	[
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/FastNoise.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/FastNoise.h",
 			"sourceGroupIndex" : 0
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/FastNoise_C.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/FastNoise_C.h",
 			"sourceGroupIndex" : 0
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Metadata.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Metadata.h",
 			"sourceGroupIndex" : 0
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/src/FastNoise/Base64.h",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 2,
-			"compileGroupIndex" : 0,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/src/FastNoise/FastNoise_C.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/src/FastNoise/FastSIMD_Build.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/src/FastNoise/Base64.h",
 			"sourceGroupIndex" : 0
 		},
 		{
 			"backtrace" : 2,
 			"compileGroupIndex" : 0,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/src/FastNoise/Metadata.cpp",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/src/FastNoise/FastNoise_C.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 2,
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/src/FastNoise/FastSIMD_Build.inl",
 			"sourceGroupIndex" : 0
 		},
 		{
 			"backtrace" : 2,
 			"compileGroupIndex" : 0,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/src/FastNoise/SmartNode.cpp",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/src/FastNoise/Metadata.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/BasicGenerators.h",
+			"compileGroupIndex" : 0,
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/src/FastNoise/SmartNode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 2,
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/BasicGenerators.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/BasicGenerators.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/BasicGenerators.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Blends.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Blends.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Blends.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Blends.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Cellular.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Cellular.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Cellular.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Cellular.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarp.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarp.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarp.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarp.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarpFractal.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarpFractal.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarpFractal.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarpFractal.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarpSimplex.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarpSimplex.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarpSimplex.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/DomainWarpSimplex.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Fractal.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Fractal.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Fractal.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Fractal.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Generator.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Generator.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Generator.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Generator.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Modifiers.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Modifiers.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Modifiers.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Modifiers.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Perlin.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Perlin.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Perlin.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Perlin.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Simplex.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Simplex.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Simplex.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Simplex.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Utils.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Utils.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Value.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Value.h",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Generators/Value.inl",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Generators/Value.inl",
 			"sourceGroupIndex" : 1
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Utility/Config.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Utility/Config.h",
 			"sourceGroupIndex" : 2
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Utility/Export.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Utility/Export.h",
 			"sourceGroupIndex" : 2
 		},
 		{
 			"backtrace" : 2,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-src/include/FastNoise/Utility/SmartNode.h",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-src/include/FastNoise/Utility/SmartNode.h",
 			"sourceGroupIndex" : 2
 		},
 		{
 			"backtrace" : 5,
 			"isGenerated" : true,
-			"path" : "out/build/x64-Release/_deps/fastsimd-build/CMakeFiles/FastSIMD.dir/src/FastSIMD.cpp.obj",
+			"path" : "out/build/x64-Debug/_deps/fastsimd-build/CMakeFiles/FastSIMD.dir/src/FastSIMD.cpp.obj",
 			"sourceGroupIndex" : 3
 		},
 		{
 			"backtrace" : 5,
 			"isGenerated" : true,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-build/src/CMakeFiles/FastSIMD_FastNoise.dir/fastsimd/FastSIMD_FastNoise/FastSIMD_FastNoise_SSE2.cpp.obj",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-build/src/CMakeFiles/FastSIMD_FastNoise.dir/fastsimd/FastSIMD_FastNoise/FastSIMD_FastNoise_SSE2.cpp.obj",
 			"sourceGroupIndex" : 3
 		},
 		{
 			"backtrace" : 5,
 			"isGenerated" : true,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-build/src/CMakeFiles/FastSIMD_FastNoise.dir/fastsimd/FastSIMD_FastNoise/FastSIMD_FastNoise_SSE41.cpp.obj",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-build/src/CMakeFiles/FastSIMD_FastNoise.dir/fastsimd/FastSIMD_FastNoise/FastSIMD_FastNoise_SSE41.cpp.obj",
 			"sourceGroupIndex" : 3
 		},
 		{
 			"backtrace" : 5,
 			"isGenerated" : true,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-build/src/CMakeFiles/FastSIMD_FastNoise.dir/fastsimd/FastSIMD_FastNoise/FastSIMD_FastNoise_AVX2.cpp.obj",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-build/src/CMakeFiles/FastSIMD_FastNoise.dir/fastsimd/FastSIMD_FastNoise/FastSIMD_FastNoise_AVX2.cpp.obj",
 			"sourceGroupIndex" : 3
 		},
 		{
 			"backtrace" : 5,
 			"isGenerated" : true,
-			"path" : "out/build/x64-Release/_deps/fastnoise2-build/src/CMakeFiles/FastSIMD_FastNoise.dir/fastsimd/FastSIMD_FastNoise/FastSIMD_FastNoise_AVX512.cpp.obj",
+			"path" : "out/build/x64-Debug/_deps/fastnoise2-build/src/CMakeFiles/FastSIMD_FastNoise.dir/fastsimd/FastSIMD_FastNoise/FastSIMD_FastNoise_AVX512.cpp.obj",
 			"sourceGroupIndex" : 3
 		}
 	],

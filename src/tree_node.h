@@ -12,14 +12,21 @@ public:
     }
     TreeNode() : children{}
     {
+        allocated++;
     }
     ~TreeNode()
     {
         for (auto* child : children)
+        {
+            deallocated++;
             delete child;
+        }
     }
+    inline static std::atomic<uint64_t> allocated{ 0 };
+    inline static std::atomic<uint64_t> deallocated{ 0 };
+
     void Clear() {
-        for (size_t i = 0; i < 4; ++i) {
+        for (size_t i = 0; i < N; ++i) {
             if (children[i]) {
                 delete children[i];    // This triggers the destructor chain
                 children[i] = nullptr; // Crucial: prevent dangling pointers

@@ -275,6 +275,14 @@ public:
 		m_OffsetToSize.erase(offset);
 	}
 
+	uint64_t GetBlocksSize()
+	{
+		uint64_t total = 0;
+		for (const auto& [offset, size] : m_OffsetToSize)
+			total += size;
+		return total;
+	}
+
 	void DebugPrint(uint64_t blockSize = KB(4))
 	{
 		std::lock_guard lock(m_RecMtx);
@@ -354,6 +362,12 @@ public:
 					if (g_DebugPrint) std::cout << std::format("  --> O: {}\n", offset);
 			}
 		}
+
+		uint64_t totalBlocksSize = GetBlocksSize();
+		double ratio = totalBlocksSize / double(GetMaxSize());
+		std::cout << std::format("marked: {} ({})\n", totalBlocksSize, ratio);
+		std::cout << std::format("unmarked: {} ({})\n", GetMaxSize() - totalBlocksSize, 1.0 - ratio);
+
 	}
 
 	void DebugLog(std::string& out, uint64_t blockSize)

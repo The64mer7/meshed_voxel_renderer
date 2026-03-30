@@ -11,11 +11,13 @@
 #include <mutex>
 #include <condition_variable>
 #include <shared_mutex>
+#include <bitset>
 #include <atomic>
 #include <unordered_map>
 #include <bit>
 #include <queue>
 #include <FastNoise/FastNoise.h>
+#include <glm/gtc/matrix_access.hpp>
 
 #include <stdio.h>
 
@@ -150,10 +152,9 @@ void SetupNoise() {
     case world_preset::Mountains:
     {
         noiseNode->SetSource(sourceNode);
-        noiseNode->SetOctaveCount(5);
+        noiseNode->SetOctaveCount(7);
         noiseNode->SetLacunarity(2.f);
         noiseNode->SetGain(0.5f);
-
     }
         break;
     case world_preset::Desert:
@@ -176,12 +177,51 @@ float hash(float n)
     return glm::fract(191122.518925 + glm::sin(n) * 43758.5453123);
 }
 
+enum FrustumResult { OUTSIDE, INTERSECT, INSIDE };
+
+void extract_frustum(const glm::mat4& vp, glm::vec4* planes) {
+    planes[0] = glm::row(vp, 3) + glm::row(vp, 0);
+    planes[1] = glm::row(vp, 3) - glm::row(vp, 0);
+    planes[2] = glm::row(vp, 3) + glm::row(vp, 1);
+    planes[3] = glm::row(vp, 3) - glm::row(vp, 1);
+    planes[4] = glm::row(vp, 3) + glm::row(vp, 2);
+    planes[5] = glm::row(vp, 3) - glm::row(vp, 2);
+
+    for (int i = 0; i < 6; ++i) {
+        float length = glm::length(glm::vec3(planes[i]));
+        planes[i] /= length;
+    }
+}
+FrustumResult frustum_aabb(const glm::vec4* planes, const glm::vec3& box_min, const glm::vec3& box_max) {
+    bool allInside = true;
+
+    for (int i = 0; i < 6; ++i) {
+        glm::vec3 p;
+        p.x = (planes[i].x > 0) ? box_max.x : box_min.x;
+        p.y = (planes[i].y > 0) ? box_max.y : box_min.y;
+        p.z = (planes[i].z > 0) ? box_max.z : box_min.z;
+
+        if (glm::dot(glm::vec3(planes[i]), p) + planes[i].w < 0)
+            return OUTSIDE;
+
+        glm::vec3 n;
+        n.x = (planes[i].x > 0) ? box_min.x : box_max.x;
+        n.y = (planes[i].y > 0) ? box_min.y : box_max.y;
+        n.z = (planes[i].z > 0) ? box_min.z : box_max.z;
+
+        if (glm::dot(glm::vec3(planes[i]), n) + planes[i].w < 0)
+            allInside = false;
+    }
+
+    return allInside ? INSIDE : INTERSECT;
+}
 
 std::vector<glm::vec4> spheresLoaded;
 class ThreadGenerator
 {
 public:
     std::vector<float> m_HeightMap;
+    std::vector<float> m_DensityMap;
     void Init()
     {
         static bool once = [&]()
@@ -190,6 +230,7 @@ public:
                 return true;
             }();
         m_HeightMap.resize(glm::pow(2 + m_ChunkAxisCount, 2u));
+        m_DensityMap.resize(glm::pow(2 + m_ChunkAxisCount, 3u));
     }
 
     auto ComputeHeightMap(glm::vec2 origin, int lod, int seed)
@@ -214,11 +255,32 @@ public:
         );
     }
 
+    auto ComputeDensityMap(glm::vec3 origin, int lod, int seed)
+    {
+        // A standard frequency for a large world
+        float worldFrequency = 0.5f;
+
+        // 1. Scale the origin so the noise 'matches' world coordinates
+        float noiseX = origin.x * worldFrequency;
+        float noiseY = origin.y * worldFrequency;
+        float noiseZ = origin.z * worldFrequency;
+
+        // 2. Scale the step size so we don't skip over the mountains
+        float step = VoxelSize(lod) * worldFrequency;
+        origin -= step;
+
+        return noiseNode->GenUniformGrid3D(
+            m_DensityMap.data(),
+            noiseX, noiseY, noiseZ,
+            m_ChunkAxisCount + 2, m_ChunkAxisCount + 2, m_ChunkAxisCount + 2,
+            step, step, step,
+            seed
+        );
+    }
+
     float ApplyAmplitude(float v)
     {
-        // 8 is still very small for a 1024-sized world. 
-        // Try 64 or 128 to actually see 'terrain'.
-        return 64.0f + (64.0f * v);
+        return 64.0f + (32.0f * v);
     }
 
     float GetHeight(int x, int y, uint32_t* outColor) // -1 to m_ChunkAxisCount
@@ -253,6 +315,18 @@ public:
         return glm::max(20.f, h);
     }
 
+    float GetDensity(int x, int y, int z, uint32_t* outColor) // -1 to m_ChunkAxisCount
+    {
+        x += 1; y += 1; z += 1;
+        uint32_t stride = (m_ChunkAxisCount + 2);
+        float d = m_DensityMap[x + stride * y + stride * stride * z];
+
+        float rand0 = (hash(d) - 0.5f) * 8;
+
+        *outColor = MAKE_COLOR(205 + rand0, 205 + rand0, 205 + rand0, 255);
+        return d+0.5;
+    }
+
     bool LoadChunk(glm::ivec4 chunkLod, DataResult* outResult)
     {
         m_StagingVertices.clear();
@@ -266,8 +340,6 @@ public:
 
         auto bounds = ComputeHeightMap(glm::xz(chunkOrigin), lod, 191122);
 
-        if (ApplyAmplitude(bounds.min) > chunkOrigin.y + chunkSize)
-            return false;
         if (ApplyAmplitude(bounds.max) < chunkOrigin.y)
             return false;
 
@@ -288,9 +360,9 @@ public:
                 }
                 int y_coord = glm::floor((h - chunkOrigin.y) / voxelSize);
 
-                for (int j = 0; j < 3; j++)
+                for (uint32_t i = 0; i < 3; i++)
                 {
-                    uint32_t y = y_coord - j;
+                    uint32_t y = y_coord - i;
                     glm::ivec3 xyz = { x,y,z };
                     voxelOrigin = chunkOrigin + glm::vec3(xyz) * voxelSize;
 
@@ -370,6 +442,104 @@ public:
         return true;
     }
 
+    bool LoadChunk3D(glm::ivec4 chunkLod, DataResult* outResult)
+    {
+        m_StagingVertices.clear();
+        int32_t lod = chunkLod.w;
+
+        float chunkSize = ChunkSize(lod);
+        float voxelSize = VoxelSize(lod);
+
+        glm::vec3 chunkOrigin = chunkSize * glm::vec3(glm::xyz(chunkLod));
+        uint32_t maxIndex = glm::pow(m_ChunkAxisCount, 3);
+
+        auto bounds_2d = ComputeHeightMap(glm::xz(chunkOrigin), lod, 191122);
+        if (ApplyAmplitude(bounds_2d.max) < chunkOrigin.y)
+            return false;
+
+        auto bounds = ComputeDensityMap(chunkOrigin, lod, 191122);
+
+
+        for (uint32_t z = 0; z < m_ChunkAxisCount; z++)
+            for (uint32_t x = 0; x < m_ChunkAxisCount; x++)
+                for (uint32_t y = 0; y < m_ChunkAxisCount; y++)
+                {
+                    glm::ivec3 xyz = { x,y,z };
+                    glm::vec3 voxelOrigin = chunkOrigin + glm::vec3(xyz) * voxelSize;
+                    
+                    uint32_t col;
+                    float d = GetDensity(x, y, z, &col);
+                    float h = GetHeight(x, z, &col);
+                    if (voxelOrigin.y > h)
+                        break;
+
+                    if (d <= 0.f)
+                        continue;
+
+                    // X NX Y NY Z NZ
+                    bool positive = true;
+                    for (uint32_t i = 0b1; i < 0b1000000; i <<= 1, positive = !positive)
+                    {
+                        glm::ivec3 idelta;
+                        idelta.x = ((i & 0b1) ? 1 : 0) - ((i & 0b10) ? 1 : 0);
+                        idelta.y = ((i & 0b100) ? 1 : 0) - ((i & 0b1000) ? 1 : 0);
+                        idelta.z = ((i & 0b10000) ? 1 : 0) - ((i & 0b100000) ? 1 : 0);
+
+                        glm::vec3 delta = idelta;;
+                        delta *= voxelSize;
+                        uint32_t currAxis = (std::bit_width(i) - 0b1) >> 1;
+
+                        glm::vec3 vertDelta = glm::greaterThan(delta, glm::vec3(0.f));
+                        glm::vec3 currFaceOrigin = voxelOrigin + vertDelta * voxelSize;
+
+                        glm::vec3 neighborOrigin = voxelOrigin + delta;
+
+                        int32_t nx = x + idelta.x;
+                        int32_t ny = y + idelta.y;
+                        int32_t nz = z + idelta.z;
+
+                        uint32_t ncol;
+                        float nd = GetDensity(nx, ny, nz, &ncol);
+                        float nh = GetHeight(nx, nz, &ncol);
+
+                        bool is_neighbor_empty = nd <= 0.f || nh < neighborOrigin.y;
+                        if (is_neighbor_empty) // should emit face
+                        {
+                            glm::vec4 face[4];
+                            glm::ivec2 axes = glm::ivec2(
+                                (currAxis + 1) % 3,
+                                (currAxis + 2) % 3
+                            );
+                            for (int f = 0; f < 4; f++)
+                            {
+                                glm::ivec2 mask = { f % 2, f / 2 };
+                                glm::vec3 offset(0.f);
+
+                                offset[axes.x] = mask.x;
+                                offset[axes.y] = mask.y;
+
+                                face[f] = glm::vec4(currFaceOrigin + voxelSize * offset - chunkOrigin, std::bit_cast<float>(col));
+                            }
+                            m_StagingVertices.push_back(face[0]);
+                            m_StagingVertices.push_back(face[positive ? 1 : 2]);
+                            m_StagingVertices.push_back(face[positive ? 2 : 1]);
+
+                            m_StagingVertices.push_back(face[positive ? 2 : 1]);
+                            m_StagingVertices.push_back(face[positive ? 1 : 2]);
+                            m_StagingVertices.push_back(face[3]);
+                        }
+                    }
+                }
+        if (m_StagingVertices.empty())
+            return false;
+
+        outResult->addr = m_StagingVertices.data();
+        outResult->size = m_StagingVertices.size() * sizeof(glm::vec4);
+        outResult->consumed = false;
+
+        return true;
+    }
+
     float VoxelSize(int32_t lod)
     {
         return ChunkSize(lod) / m_ChunkAxisCount;
@@ -393,11 +563,11 @@ ThreadSafeQueue<DataResult*> resultQueue;
 struct builder_info
 {
     glm::vec3 p;
-    Octree* tree;
+    FlatOctree* tree;
 };
 
-uint8_t octree_generate_max_depth = 16;
-void octree_generate(Octree* octree, glm::vec3 p)
+uint8_t octree_generate_max_depth = 15;
+void octree_generate(FlatOctree* octree, glm::vec3 p)
 {
     //octree->Generate(4, octree_generate_max_depth, p.x, p.y, p.z, 0.1f, 512.f,2.f);
     octree->Generate(4, octree_generate_max_depth, p.x, p.y, p.z, 0.f, 1024.f * 64, 512.f);
@@ -422,19 +592,18 @@ typedef struct Entity
     glm::vec3 velocity;
 } Entity;
 
-
 struct app_data_t
 {
     Entity player;
     Engine* engine;
     FirstPersonCamera camera;
-    glm::ivec3 camera_chunk_pos;
+    glm::ivec3 camera_chunk_pos = glm::ivec3(0);
 
     std::vector<std::thread> generator_workers;
     std::thread tree_builder_worker;
 
     uint32_t dummy_vao;
-    Octree octree;
+    FlatOctree octree;
     float octree_rebuild_distance_treshold;
     glm::vec3 octree_build_pos;
     GpuBuffer vertex_buffer;
@@ -446,6 +615,7 @@ struct app_data_t
     std::vector<DrawArraysIndirectCommand> terrain_draw_cmds;
     GpuBuffer terrain_draw_cmds_buffer;
     std::vector<glm::ivec4> chunk_positions_cmds;
+    std::unordered_set<glm::ivec4> chunk_positions_cmds_set;
     GpuBuffer chunk_positions_cmds_buffer;
 
     ShaderProgram render_shader_program;
@@ -458,10 +628,10 @@ static void tree_builder(app_data_t* data)
         std::unique_lock lock(tree_builder_mtx);
         tree_builder_cv.wait(lock, [&]() {return tree_builder_state == builder_state::REQUEST; });
         
-        octree_generate(tree_builder_info.tree, tree_builder_info.p);
+        octree_generate(&data->octree, tree_builder_info.p);
         tree_builder_state = builder_state::READY;
 
-        tree_builder_info.tree->ForEachLeafRemoved(
+        data->octree.ForEachLeafRemoved(
             [&](packed_leaf3d_t leaf)
             {
                 if (data->loaded_chunk_to_cmd_idx_map.find(leaf.packed) == data->loaded_chunk_to_cmd_idx_map.end())
@@ -480,6 +650,7 @@ static void tree_builder(app_data_t* data)
 
                 data->terrain_draw_cmds.pop_back();
                 data->chunk_positions_cmds.pop_back();
+                data->chunk_positions_cmds_set.erase(leaf.packed);
 
                 data->loaded_chunk_to_cmd_idx_map.erase(leaf.packed);
                 data->loaded_cmd_idx_to_chunk_map.erase(swap_cmd_offset);
@@ -503,34 +674,37 @@ static void tree_builder(app_data_t* data)
         tree_builder_state = builder_state::IDLE;
     }
 }
-
+uint64_t completed = 0;
+uint64_t requested = 0;
 
 std::atomic_uint64_t working_threads = 0u;
-void data_generator()
+static void data_generator()
 {
     static int idGenerator = 0;
     int id = idGenerator++;
 
     ThreadGenerator generator;
     generator.Init();
-    uint64_t thread_bit = 1u << uint64_t(id);
+    uint64_t thread_bit = 1ull << uint64_t(id);
 
-    DataResult dataResult;
     while (true)
     {
+        DataResult dataResult;
         glm::ivec4 chunkKey;
         taskQueue.WaitAndDequeue(chunkKey);
         working_threads.fetch_xor(thread_bit);
 
-        if (generator.LoadChunk(chunkKey, &dataResult))
+        if (generator.LoadChunk3D(chunkKey, &dataResult))
         {
             dataResult.key = chunkKey;
-            ////printf("chunk loaded %i: %i, %i, %i\n", chunkKey.w, chunkKey.x, chunkKey.y, chunkKey.z);
+            //printf("chunk loaded %i: %i, %i, %i\n", chunkKey.w, chunkKey.x, chunkKey.y, chunkKey.z);
             resultQueue.Enqueue(&dataResult);
 
             std::unique_lock lock(dataResult.mtx);
+            requested++;
             dataResult.cv.wait(lock, [&dataResult] {return dataResult.consumed; });
         }
+
         working_threads.fetch_xor(thread_bit);
     }
 }
@@ -547,8 +721,6 @@ public:
 private:
     bool prev_predicate = false;
 };
-
-
 
 typedef struct App
 {
@@ -574,9 +746,9 @@ private:
     double m_start_time;
     std::string m_label;
 };
-
 int frame_update(void* user_data)
 {
+
     static uint64_t total_added = 0;
     static uint64_t total_removed = 0;
     app_data_t* data = reinterpret_cast<app_data_t*>(user_data);
@@ -586,8 +758,17 @@ int frame_update(void* user_data)
     static OnceGuard sub_guard;
     static OnceGuard treshold_guard;
     static uint64_t frame_index = 0;
+    if (frame_index % 1024 == 0)
+    {
+        //data->vertex_free_list.DebugPrint(1024*1024*64);
+        printf("tasks: %i\n", taskQueue.Size());
+        printf("results: %i\n", resultQueue.Size());
+        printf("requested: %i\n", requested);
+        printf("completed: %i\n", completed);
+        std::cout << "working threads: " << std::bitset<32>(working_threads.load()) << '\n';
+    }
 
-    ScopedTimer timer("update");
+    //ScopedTimer timer("update");
 
     if (glfwGetKey(data->engine->window, GLFW_KEY_TAB) == GLFW_PRESS)
         printf("add: %u, rem: %u, diff: %u\n", total_added, total_removed, total_added - total_removed);
@@ -595,7 +776,7 @@ int frame_update(void* user_data)
     if(frame_index % 16 == 0) glfwSetWindowTitle(data->engine->window, std::format("{:.3f}ms\t FPS: {:.0f}", 1000 * data->engine->delta_time, 1 / data->engine->delta_time).c_str());
     
 
-    glm::vec3 cam_pos = data->camera.GetPosition();
+    glm::vec3 cam_pos = cam.GetPosition();
     //if (glm::distance(data->octree_build_pos, cam_pos) > data->octree_rebuild_distance_treshold)
 
     if (glm::any(glm::greaterThanEqual(glm::abs(cam_pos), glm::vec3(8.f))))
@@ -616,6 +797,7 @@ int frame_update(void* user_data)
                 if (data->vertex_free_list.FindAndPopOffset(size, offset))
                 {
                     data->vertex_buffer.Upload(offset, size, result->addr);
+                    completed++;
                     DrawArraysIndirectCommand cmd;
                     cmd.baseInstance = 0;
                     cmd.count = size / sizeof(glm::vec4);
@@ -635,6 +817,7 @@ int frame_update(void* user_data)
 
                     data->terrain_draw_cmds.push_back(cmd);
                     data->chunk_positions_cmds.push_back(leaf_data.packed);
+                    data->chunk_positions_cmds_set.insert(leaf_data.packed);
                     //printf("saved chunk %i: %i, %i, %i in offset %i, size %i\n", leaf_data.lod, leaf_data.x, leaf_data.y, leaf_data.z, offset, size);
                 }
                 else
@@ -648,7 +831,7 @@ int frame_update(void* user_data)
         }
 
     if (
-        (glm::distance(data->camera.GetPosition(), data->octree_build_pos) > data->octree_rebuild_distance_treshold ||
+        (glm::distance(cam.GetPosition(), data->octree_build_pos) > data->octree_rebuild_distance_treshold ||
             click_guard.is_first(glfwGetKey(data->engine->window, GLFW_KEY_B) == GLFW_PRESS)
         ) &&
         working_threads.load() == 0u && taskQueue.Size() == 0 && 
@@ -698,11 +881,12 @@ int frame_update(void* user_data)
             preset = world_preset(i);
             SetupNoise();
             data->octree_build_pos = data->player.position + 2 * data->octree_rebuild_distance_treshold; // FIX
-            data->octree = Octree();
+            data->octree = FlatOctree();
             data->octree.s = WORLD_SIZE;
             data->loaded_chunk_to_cmd_idx_map.clear();
             data->loaded_cmd_idx_to_chunk_map.clear();
             data->chunk_positions_cmds.clear();
+            data->chunk_positions_cmds_set.clear();
             data->terrain_draw_cmds.clear();
             resultQueue.Clear();
             taskQueue.Clear();
@@ -738,11 +922,9 @@ int frame_update(void* user_data)
 
 int frame_render(Renderer* renderer, void* user_data)
 {
-    ScopedTimer timer("render");
+    //ScopedTimer timer("render");
     app_data_t* data = reinterpret_cast<app_data_t*>(user_data);
     glClearColor(0.7f, 0.7f, 0.9f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     {
         ShaderProgram& sp = data->render_shader_program;
         sp.bind();
@@ -769,30 +951,32 @@ int frame_render(Renderer* renderer, void* user_data)
                 sp.uniform4f("u_cube_xyz_size", xyz_size);
                 glDrawArrays(GL_LINES, 0, 24);
             }
+        sp.uniform1ui("u_render_cube", 0u);
         
         sp.uniform1ui("u_render_triangle", 1u);
-        sp.uniform1ui("u_render_cube", 0u);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+
         sp.uniform1ui("u_render_triangle", 0u);
         sp.uniform3i("u_camera_chunk_pos", data->camera_chunk_pos);
-
-        glNamedBufferData(data->terrain_draw_cmds_buffer.Handle(),
+#if 1
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, data->terrain_draw_cmds_buffer.Handle());
+        glBufferData(GL_DRAW_INDIRECT_BUFFER,
             data->terrain_draw_cmds.size() * sizeof(DrawArraysIndirectCommand),
-            nullptr,
+            data->terrain_draw_cmds.data(),
             GL_STREAM_DRAW);
 
-        glNamedBufferSubData(data->terrain_draw_cmds_buffer.Handle(),
-            0, data->terrain_draw_cmds.size() * sizeof(DrawArraysIndirectCommand),
-            data->terrain_draw_cmds.data());
+        //glNamedBufferSubData(data->terrain_draw_cmds_buffer.Handle(),
+        //    0, data->terrain_draw_cmds.size() * sizeof(DrawArraysIndirectCommand),
+        //    data->terrain_draw_cmds.data());
 
-        glNamedBufferData(data->chunk_positions_cmds_buffer.Handle(),
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, data->chunk_positions_cmds_buffer.Handle());
+        glBufferData(GL_SHADER_STORAGE_BUFFER,
             data->chunk_positions_cmds.size() * sizeof(glm::ivec4),
-            nullptr,
+            data->chunk_positions_cmds.data(),
             GL_STREAM_DRAW);
-
-        glNamedBufferSubData(data->chunk_positions_cmds_buffer.Handle(),
-            0, data->chunk_positions_cmds.size() * sizeof(glm::ivec4),
-            data->chunk_positions_cmds.data());
+        //glNamedBufferSubData(data->chunk_positions_cmds_buffer.Handle(),
+        //    0, data->chunk_positions_cmds.size() * sizeof(glm::ivec4),
+        //    data->terrain_draw_cmds.data());
 
         
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, data->vertex_buffer.Handle());
@@ -800,31 +984,8 @@ int frame_render(Renderer* renderer, void* user_data)
         
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, data->terrain_draw_cmds_buffer.Handle());
         glMultiDrawArraysIndirect(GL_TRIANGLES, 0, data->terrain_draw_cmds.size(), sizeof(DrawArraysIndirectCommand));
-        glBindVertexArray(0);
         sp.unbind();
-
-        /*
-        // 1. Start the ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        // 2. Define your widget
-        static int counter = 0;
-
-        ImGui::Begin("Voxel Control Panel");                          // Create a window
-        ImGui::Text("This is a simple label.");                       // Display some text
-        if (ImGui::Button("Click Me")) {                              // Create a button
-            counter++;                                                // Logic when clicked
-        }
-        ImGui::SameLine();                                            // Put next widget on same line
-        ImGui::Text("Counter = %d", counter);
-        ImGui::End();                                                 // Close the window
-
-        // 3. Rendering
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        */
+#endif
     }
 
     return 0;
@@ -841,10 +1002,8 @@ int app_create(App* app)
 
     int engine_status = engine_init(&app->engine, frame_update, frame_render, app->data, width, height);
     
-    for(int i = 0; i < std::thread::hardware_concurrency(); i++)
+    for(int i = 0; i < 12; i++)
         app->data->generator_workers.emplace_back(data_generator);
-    
-    
     
     glfwSwapInterval(0);
 
@@ -869,6 +1028,7 @@ int app_create(App* app)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
+
     {
         FirstPersonCameraSettings camera_settings;
         camera_settings.position = { 0,0,0 };
@@ -892,7 +1052,7 @@ int app_create(App* app)
     }
 
     data->vertex_buffer.Create();
-    data->vertex_buffer.Allocate(MB(512), nullptr, GL_STREAM_DRAW);
+    data->vertex_buffer.Allocate(GB(2), nullptr, GL_STREAM_DRAW);
     data->vertex_free_list.Init(data->vertex_buffer.SizeInBytes());
     data->vertex_free_list.AddMemoryBlock(0, data->vertex_free_list.GetMaxSize());
 

@@ -35,15 +35,21 @@ FetchContent_MakeAvailable(fastnoise2)
 
 add_executable(${PROJECT_NAME_VAR} ${SOURCES} ${SHADER_SOURCES})
 
+# 1. Define the destination
 set(SHADER_DEST_DIR $<TARGET_FILE_DIR:${PROJECT_NAME_VAR}>/shaders)
-add_custom_command(
-    TARGET ${PROJECT_NAME_VAR} POST_BUILD
+
+# 2. Create a custom target for shaders
+add_custom_target(update_shaders ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_DEST_DIR}
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory 
+            "${CMAKE_CURRENT_SOURCE_DIR}/shaders" 
             ${SHADER_DEST_DIR}
-    COMMENT "Copying shaders to executable directory..."
+    SOURCES ${SHADER_SOURCES}
+    COMMENT "Checking/Copying shaders..."
 )
+
+# 3. Make the main project depend on the shader target
+add_dependencies(${PROJECT_NAME_VAR} update_shaders)
 
 
 target_include_directories(${PROJECT_NAME_VAR} PRIVATE 
