@@ -67,7 +67,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "/DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -std:c++20 -MD"
+					"fragment" : "/DWIN32 /D_WINDOWS /EHsc /Ob0 /Od /RTC1 -std:c++20 -MDd -Zi"
 				}
 			],
 			"defines" : 
@@ -101,19 +101,19 @@
 				},
 				{
 					"backtrace" : 3,
-					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/glm-src"
+					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/glm-src"
 				},
 				{
 					"backtrace" : 3,
-					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/fastnoise2-src/include"
+					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/fastnoise2-src/include"
 				},
 				{
 					"backtrace" : 3,
-					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/fastsimd-src/include"
+					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/fastsimd-src/include"
 				},
 				{
 					"backtrace" : 3,
-					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/fastnoise2-build/src/fastsimd/FastSIMD_FastNoise/include"
+					"path" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Debug/_deps/fastnoise2-build/src/fastsimd/FastSIMD_FastNoise/include"
 				}
 			],
 			"language" : "CXX",
@@ -135,20 +135,16 @@
 	"dependencies" : 
 	[
 		{
+			"backtrace" : 3,
+			"id" : "glfw::@e43ad0a4af27ecc346ee"
+		},
+		{
 			"backtrace" : 4,
 			"id" : "update_shaders::@6890427a1f51a3e7e1df"
 		},
 		{
 			"backtrace" : 3,
-			"id" : "glfw::@e43ad0a4af27ecc346ee"
-		},
-		{
-			"backtrace" : 3,
 			"id" : "glm::@ce54d98d7b326a3e12a8"
-		},
-		{
-			"backtrace" : 3,
-			"id" : "FastNoise::@6b1bf7fc44025bd8098e"
 		},
 		{
 			"backtrace" : 3,
@@ -157,6 +153,10 @@
 		{
 			"backtrace" : 3,
 			"id" : "FastSIMD_FastNoise::@6b1bf7fc44025bd8098e"
+		},
+		{
+			"backtrace" : 3,
+			"id" : "FastNoise::@6b1bf7fc44025bd8098e"
 		}
 	],
 	"id" : "meshed_voxel_renderer::@6890427a1f51a3e7e1df",
@@ -165,11 +165,11 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "/DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -MD",
+				"fragment" : "/DWIN32 /D_WINDOWS /EHsc /Ob0 /Od /RTC1 -MDd -Zi",
 				"role" : "flags"
 			},
 			{
-				"fragment" : "/machine:x64 /INCREMENTAL:NO /subsystem:console",
+				"fragment" : "/machine:x64 /debug /INCREMENTAL /subsystem:console",
 				"role" : "flags"
 			},
 			{
@@ -189,7 +189,7 @@
 			},
 			{
 				"backtrace" : 3,
-				"fragment" : "_deps\\fastnoise2-build\\src\\FastNoise.lib",
+				"fragment" : "_deps\\fastnoise2-build\\src\\FastNoiseD.lib",
 				"role" : "libraries"
 			},
 			{

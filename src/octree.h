@@ -280,6 +280,10 @@ public:
     std::vector<FlatOctreeNode> nodes;
 
     float px = 0.f, py = 0.f, pz = 0.f, s = 1024.f;
+    void RegenerateLeafsInSphere(glm::vec4 sphere)
+    {
+
+    }
 
     void Generate(uint64_t min_depth, uint64_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, float intensity)
     {

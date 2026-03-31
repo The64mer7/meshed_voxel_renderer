@@ -46,7 +46,7 @@ public:
 	void SetProjection(const FirstPersonCameraSettings& settings)
 	{
 		float aspect = settings.width / settings.height;
-		m_ProjectionMatrix = glm::perspective(settings.fov, aspect, settings.nearPlane, settings.farPlane);
+		m_ProjectionMatrix = glm::perspectiveZO(settings.fov, aspect, settings.nearPlane, settings.farPlane);
 		
 		float ortho_height = 20.f;
 		float ortho_width = aspect * ortho_height;

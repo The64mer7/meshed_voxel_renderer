@@ -6514,3 +6514,541 @@ events:
         
       exitCode: 1
 ...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/cmake/ArchDetect.cmake:15 (try_compile)"
+      - "out/build/x64-Release/_deps/fastsimd-src/CMakeLists.txt:22 (target_architecture)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_aca5b
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP   /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_aca5b.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_aca5b.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        FAILED: CMakeFiles/cmTC_aca5b.dir/ArchDetect.cpp.obj 
+        C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP   /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_aca5b.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_aca5b.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(15): error C2338: static_assert failed: 'FASTSIMD_ARCH<X86=SSE2>'
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(18): error C2059: syntax error: 'string'
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_54355
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=SSE2  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_54355.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_54355.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        FAILED: CMakeFiles/cmTC_54355.dir/ArchDetect.cpp.obj 
+        C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=SSE2  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_54355.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_54355.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(15): error C2338: static_assert failed: 'FASTSIMD_ARCH<X86=SSE2>'
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(18): error C2059: syntax error: 'string'
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_131aa
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=SSE41  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_131aa.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_131aa.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        FAILED: CMakeFiles/cmTC_131aa.dir/ArchDetect.cpp.obj 
+        C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=SSE41  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_131aa.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_131aa.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(15): error C2338: static_assert failed: 'FASTSIMD_ARCH<X86=SSE2>'
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(18): error C2059: syntax error: 'string'
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_159f9
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=AVX2  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_159f9.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_159f9.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        FAILED: CMakeFiles/cmTC_159f9.dir/ArchDetect.cpp.obj 
+        C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=AVX2  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_159f9.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_159f9.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(15): error C2338: static_assert failed: 'FASTSIMD_ARCH<X86=SSE2>'
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(18): error C2059: syntax error: 'string'
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_8634d
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=AVX512  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_8634d.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_8634d.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        FAILED: CMakeFiles/cmTC_8634d.dir/ArchDetect.cpp.obj 
+        C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=AVX512  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_8634d.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_8634d.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(15): error C2338: static_assert failed: 'FASTSIMD_ARCH<X86=SSE2>'
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(18): error C2059: syntax error: 'string'
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_7d7ed
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=NEON  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_7d7ed.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_7d7ed.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(9): warning C4067: unexpected tokens following preprocessor directive - expected a newline
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_7d7ed.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_7d7ed.dir\\ArchDetect.cpp.obj  /out:cmTC_7d7ed.exe /implib:cmTC_7d7ed.lib /pdb:cmTC_7d7ed.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        FAILED: cmTC_7d7ed.exe 
+        C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_7d7ed.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_7d7ed.dir\\ArchDetect.cpp.obj  /out:cmTC_7d7ed.exe /implib:cmTC_7d7ed.lib /pdb:cmTC_7d7ed.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        LINK Pass 1: command "C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_7d7ed.dir\\ArchDetect.cpp.obj /out:cmTC_7d7ed.exe /implib:cmTC_7d7ed.lib /pdb:cmTC_7d7ed.pdb /version:0.0 /machine:x64 /debug /INCREMENTAL /subsystem:console kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTFILE:CMakeFiles\\cmTC_7d7ed.dir/intermediate.manifest CMakeFiles\\cmTC_7d7ed.dir/manifest.res" failed (exit code 1120) with the following output:
+        MSVCRTD.lib(exe_main.obj) : error LNK2019: unresolved external symbol main referenced in function "int __cdecl invoke_main(void)" (?invoke_main@@YAHXZ)\x0d
+        cmTC_7d7ed.exe : fatal error LNK1120: 1 unresolved externals\x0d
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_4c85d
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=AARCH64  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_4c85d.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_4c85d.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(9): warning C4067: unexpected tokens following preprocessor directive - expected a newline
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_4c85d.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_4c85d.dir\\ArchDetect.cpp.obj  /out:cmTC_4c85d.exe /implib:cmTC_4c85d.lib /pdb:cmTC_4c85d.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        FAILED: cmTC_4c85d.exe 
+        C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_4c85d.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_4c85d.dir\\ArchDetect.cpp.obj  /out:cmTC_4c85d.exe /implib:cmTC_4c85d.lib /pdb:cmTC_4c85d.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        LINK Pass 1: command "C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_4c85d.dir\\ArchDetect.cpp.obj /out:cmTC_4c85d.exe /implib:cmTC_4c85d.lib /pdb:cmTC_4c85d.pdb /version:0.0 /machine:x64 /debug /INCREMENTAL /subsystem:console kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTFILE:CMakeFiles\\cmTC_4c85d.dir/intermediate.manifest CMakeFiles\\cmTC_4c85d.dir/manifest.res" failed (exit code 1120) with the following output:
+        MSVCRTD.lib(exe_main.obj) : error LNK2019: unresolved external symbol main referenced in function "int __cdecl invoke_main(void)" (?invoke_main@@YAHXZ)\x0d
+        cmTC_4c85d.exe : fatal error LNK1120: 1 unresolved externals\x0d
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_50c31
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=WASM  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_50c31.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_50c31.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(9): warning C4067: unexpected tokens following preprocessor directive - expected a newline
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_50c31.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_50c31.dir\\ArchDetect.cpp.obj  /out:cmTC_50c31.exe /implib:cmTC_50c31.lib /pdb:cmTC_50c31.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        FAILED: cmTC_50c31.exe 
+        C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_50c31.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_50c31.dir\\ArchDetect.cpp.obj  /out:cmTC_50c31.exe /implib:cmTC_50c31.lib /pdb:cmTC_50c31.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        LINK Pass 1: command "C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_50c31.dir\\ArchDetect.cpp.obj /out:cmTC_50c31.exe /implib:cmTC_50c31.lib /pdb:cmTC_50c31.pdb /version:0.0 /machine:x64 /debug /INCREMENTAL /subsystem:console kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTFILE:CMakeFiles\\cmTC_50c31.dir/intermediate.manifest CMakeFiles\\cmTC_50c31.dir/manifest.res" failed (exit code 1120) with the following output:
+        MSVCRTD.lib(exe_main.obj) : error LNK2019: unresolved external symbol main referenced in function "int __cdecl invoke_main(void)" (?invoke_main@@YAHXZ)\x0d
+        cmTC_50c31.exe : fatal error LNK1120: 1 unresolved externals\x0d
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/cmake/ArchDetect.cmake:15 (try_compile)"
+      - "out/build/x64-Release/_deps/fastsimd-src/CMakeLists.txt:22 (target_architecture)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_c353d
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP   /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_c353d.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_c353d.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        FAILED: CMakeFiles/cmTC_c353d.dir/ArchDetect.cpp.obj 
+        C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP   /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_c353d.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_c353d.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(15): error C2338: static_assert failed: 'FASTSIMD_ARCH<X86=SSE2>'
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(18): error C2059: syntax error: 'string'
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_46358
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=SSE2  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_46358.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_46358.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        FAILED: CMakeFiles/cmTC_46358.dir/ArchDetect.cpp.obj 
+        C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=SSE2  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_46358.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_46358.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(15): error C2338: static_assert failed: 'FASTSIMD_ARCH<X86=SSE2>'
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(18): error C2059: syntax error: 'string'
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_d118c
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=SSE41  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_d118c.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_d118c.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        FAILED: CMakeFiles/cmTC_d118c.dir/ArchDetect.cpp.obj 
+        C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=SSE41  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_d118c.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_d118c.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(15): error C2338: static_assert failed: 'FASTSIMD_ARCH<X86=SSE2>'
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(18): error C2059: syntax error: 'string'
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_142df
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=AVX2  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_142df.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_142df.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        FAILED: CMakeFiles/cmTC_142df.dir/ArchDetect.cpp.obj 
+        C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=AVX2  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_142df.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_142df.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(15): error C2338: static_assert failed: 'FASTSIMD_ARCH<X86=SSE2>'
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(18): error C2059: syntax error: 'string'
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_b4123
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=AVX512  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_b4123.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_b4123.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        FAILED: CMakeFiles/cmTC_b4123.dir/ArchDetect.cpp.obj 
+        C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=AVX512  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_b4123.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_b4123.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(15): error C2338: static_assert failed: 'FASTSIMD_ARCH<X86=SSE2>'
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(18): error C2059: syntax error: 'string'
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_c37e4
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=NEON  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_c37e4.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_c37e4.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(9): warning C4067: unexpected tokens following preprocessor directive - expected a newline
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_c37e4.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_c37e4.dir\\ArchDetect.cpp.obj  /out:cmTC_c37e4.exe /implib:cmTC_c37e4.lib /pdb:cmTC_c37e4.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        FAILED: cmTC_c37e4.exe 
+        C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_c37e4.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_c37e4.dir\\ArchDetect.cpp.obj  /out:cmTC_c37e4.exe /implib:cmTC_c37e4.lib /pdb:cmTC_c37e4.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        LINK Pass 1: command "C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_c37e4.dir\\ArchDetect.cpp.obj /out:cmTC_c37e4.exe /implib:cmTC_c37e4.lib /pdb:cmTC_c37e4.pdb /version:0.0 /machine:x64 /debug /INCREMENTAL /subsystem:console kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTFILE:CMakeFiles\\cmTC_c37e4.dir/intermediate.manifest CMakeFiles\\cmTC_c37e4.dir/manifest.res" failed (exit code 1120) with the following output:
+        MSVCRTD.lib(exe_main.obj) : error LNK2019: unresolved external symbol main referenced in function "int __cdecl invoke_main(void)" (?invoke_main@@YAHXZ)\x0d
+        cmTC_c37e4.exe : fatal error LNK1120: 1 unresolved externals\x0d
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_38873
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=AARCH64  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_38873.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_38873.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(9): warning C4067: unexpected tokens following preprocessor directive - expected a newline
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_38873.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_38873.dir\\ArchDetect.cpp.obj  /out:cmTC_38873.exe /implib:cmTC_38873.lib /pdb:cmTC_38873.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        FAILED: cmTC_38873.exe 
+        C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_38873.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_38873.dir\\ArchDetect.cpp.obj  /out:cmTC_38873.exe /implib:cmTC_38873.lib /pdb:cmTC_38873.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        LINK Pass 1: command "C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_38873.dir\\ArchDetect.cpp.obj /out:cmTC_38873.exe /implib:cmTC_38873.lib /pdb:cmTC_38873.pdb /version:0.0 /machine:x64 /debug /INCREMENTAL /subsystem:console kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTFILE:CMakeFiles\\cmTC_38873.dir/intermediate.manifest CMakeFiles\\cmTC_38873.dir/manifest.res" failed (exit code 1120) with the following output:
+        MSVCRTD.lib(exe_main.obj) : error LNK2019: unresolved external symbol main referenced in function "int __cdecl invoke_main(void)" (?invoke_main@@YAHXZ)\x0d
+        cmTC_38873.exe : fatal error LNK1120: 1 unresolved externals\x0d
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "out/build/x64-Release/_deps/fastsimd-src/dispatch/cmake/ClassSIMD.cmake:145 (try_compile)"
+      - "out/build/x64-Release/_deps/fastnoise2-src/src/CMakeLists.txt:69 (fastsimd_create_dispatch_library)"
+    directories:
+      source: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+      binary: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CPM_modules;"
+      VCPKG_INSTALLED_DIR: "C:/vcpkg/installed"
+      VCPKG_PREFER_SYSTEM_LIBS: "OFF"
+      VCPKG_TARGET_TRIPLET: "x64-windows"
+      Z_VCPKG_ROOT_DIR: "C:/vcpkg"
+    buildResult:
+      variable: "compile_result_unused"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe" -v cmTC_74065
+        [1/2] C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DTEST_FEATURE_SET_ACTIVE=WASM  /DWIN32 /D_WINDOWS /EHsc  /Ob0 /Od /RTC1 -std:c++17 -MDd -Zi /showIncludes /FoCMakeFiles\\cmTC_74065.dir\\ArchDetect.cpp.obj /FdCMakeFiles\\cmTC_74065.dir\\ /FS -c C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp
+        C:\\Users\\jaros\\Desktop\\Programming\\COpenglProject\\meshed_voxel_renderer\\out\\build\\x64-Release\\_deps\\fastsimd-src\\cmake\\ArchDetect.cpp(9): warning C4067: unexpected tokens following preprocessor directive - expected a newline
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_74065.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_74065.dir\\ArchDetect.cpp.obj  /out:cmTC_74065.exe /implib:cmTC_74065.lib /pdb:cmTC_74065.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        FAILED: cmTC_74065.exe 
+        C:\\WINDOWS\\system32\\cmd.exe /C "cd . && "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe" -E vs_link_exe --intdir=CMakeFiles\\cmTC_74065.dir --rc=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\rc.exe --mt=C:\\PROGRA~2\\WI3CF2~1\\10\\bin\\100261~1.0\\x64\\mt.exe --manifests  -- C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_74065.dir\\ArchDetect.cpp.obj  /out:cmTC_74065.exe /implib:cmTC_74065.lib /pdb:cmTC_74065.pdb /version:0.0 /machine:x64  /debug /INCREMENTAL /subsystem:console  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib && cd ."
+        LINK Pass 1: command "C:\\PROGRA~1\\MIB055~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1438~1.331\\bin\\Hostx64\\x64\\link.exe /nologo CMakeFiles\\cmTC_74065.dir\\ArchDetect.cpp.obj /out:cmTC_74065.exe /implib:cmTC_74065.lib /pdb:cmTC_74065.pdb /version:0.0 /machine:x64 /debug /INCREMENTAL /subsystem:console kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTFILE:CMakeFiles\\cmTC_74065.dir/intermediate.manifest CMakeFiles\\cmTC_74065.dir/manifest.res" failed (exit code 1120) with the following output:
+        MSVCRTD.lib(exe_main.obj) : error LNK2019: unresolved external symbol main referenced in function "int __cdecl invoke_main(void)" (?invoke_main@@YAHXZ)\x0d
+        cmTC_74065.exe : fatal error LNK1120: 1 unresolved externals\x0d
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+...

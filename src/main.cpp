@@ -5,7 +5,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/vec_swizzle.hpp>
 
-#define WORLD_SIZE (1024.f * 32*32)
+#define WORLD_SIZE float(0b10000000000000000000000000ull)
 
 #include <thread>
 #include <mutex>
@@ -32,6 +32,12 @@
 #include <format>
 
 #define MAKE_COLOR(r,g,b,a) ((uint32_t)(r) | ((uint32_t)(g) << 8) | ((uint32_t)(b) << 16) | ((uint32_t)(a) << 24))
+#define MAKE_COLOR_OFFSET(r, g, b, a, offset) ( \
+    ((uint32_t)((r) + (offset)) & 0xFFu)        | \
+    (((uint32_t)((g) + (offset)) & 0xFFu) << 8)  | \
+    (((uint32_t)((b) + (offset)) & 0xFFu) << 16) | \
+    (((uint32_t)(a) & 0xFFu) << 24)                \
+)
 
 template <glm::length_t L, typename T, glm::qualifier Q>
 void print_vec(const std::string& label, const glm::vec<L, T, Q>& v) {
@@ -216,7 +222,7 @@ FrustumResult frustum_aabb(const glm::vec4* planes, const glm::vec3& box_min, co
     return allInside ? INSIDE : INTERSECT;
 }
 
-std::vector<glm::vec4> spheresLoaded;
+std::vector<glm::vec4> edit_spheres_stack;
 class ThreadGenerator
 {
 public:
@@ -245,7 +251,7 @@ public:
         // 2. Scale the step size so we don't skip over the mountains
         float step = VoxelSize(lod) * worldFrequency;
         origin -= step;
-
+        
         return noiseNode->GenUniformGrid2D(
             m_HeightMap.data(),
             noiseX, noiseY,
@@ -283,21 +289,37 @@ public:
         return 64.0f + (32.0f * v);
     }
 
-    float GetHeight(int x, int y, uint32_t* outColor) // -1 to m_ChunkAxisCount
+    float GetHeight(int x, int z, uint32_t* outColor, float y, float vox_size, float d = 0.f) // -1 to m_ChunkAxisCount
     {
-        x += 1; y += 1;
-        float h = ApplyAmplitude(m_HeightMap[x + (m_ChunkAxisCount+2) * y]);
+        x += 1; z += 1;
+        float h = ApplyAmplitude(m_HeightMap[x + (m_ChunkAxisCount+2) * z]);
 
         float rand0 = (hash(h) - 0.5f) * 8;
         float rand1 = (hash(rand0) - 0.5f) * 10;
         float rand2 = (hash(rand1) - 0.5f) * 4;
         
+
         switch (preset)
         {
         case Mountains:
         {
-            if (h <= 20) *outColor = MAKE_COLOR(160 + rand0, 150 + rand0, 245 + rand0, 255);
-            else if (h <= 64) *outColor = MAKE_COLOR(200 + rand0, 240 + rand0, 190 + rand0, 255);
+            
+
+
+            uint32_t stone_color = MAKE_COLOR(160 + rand0, 150 + rand0, 145 + rand0, 255);
+
+            uint32_t dirt_color = MAKE_COLOR_OFFSET(90, 85, 75, 255, rand0);
+            uint32_t grass_color = MAKE_COLOR_OFFSET(75, 101, 50, 255, rand0);
+
+            if (y < h - 8 * vox_size)
+            {
+                *outColor = stone_color;
+
+                uint32_t diamond_color = MAKE_COLOR_OFFSET(84, 224, 240, 255, rand0);
+            }
+            else if(y < h - 2 * vox_size) *outColor = dirt_color;
+            else if(y < h) *outColor = grass_color;
+            else if (h <= 32) *outColor = MAKE_COLOR(200 + rand0, 240 + rand0, 190 + rand0, 255);
             else *outColor = MAKE_COLOR(245 + rand1, 245 + rand1, 245 + rand1, 255);
         }
             break;
@@ -311,8 +333,7 @@ public:
         default:
             break;
         }
-
-        return glm::max(20.f, h);
+        return h;
     }
 
     float GetDensity(int x, int y, int z, uint32_t* outColor) // -1 to m_ChunkAxisCount
@@ -347,11 +368,11 @@ public:
             for (uint32_t x = 0; x < m_ChunkAxisCount; x++)
             {
                 uint32_t col;
-                float h = GetHeight(x, z, &col);
+                float h = GetHeight(x, z, &col, 0, voxelSize);
                 glm::vec3 voxelOrigin = chunkOrigin + glm::vec3(x,0,z) * voxelSize;
-                for (int i = 0; i < spheresLoaded.size(); ++i)
+                for (int i = 0; i < edit_spheres_stack.size(); ++i)
                 {
-                    glm::vec4 sp = spheresLoaded[i];
+                    glm::vec4 sp = edit_spheres_stack[i];
                     if (glm::distance(glm::xz(sp), glm::xz(voxelOrigin)) > sp.w)
                         continue;
                     float sp_h = glm::sqrt(glm::pow(sp.w, 2.f) - glm::dot(glm::xz(voxelOrigin), glm::xz(voxelOrigin)));
@@ -391,7 +412,7 @@ public:
                         int32_t nz = z + idelta.z;
 
                         uint32_t ncol;
-                        float nh = GetHeight(nx, nz, &ncol);
+                        float nh = GetHeight(nx, nz, &ncol, 0, voxelSize);
                         /*
                         for (int i = 0; i < spheresLoaded.size(); ++i)
                         {
@@ -454,10 +475,34 @@ public:
         uint32_t maxIndex = glm::pow(m_ChunkAxisCount, 3);
 
         auto bounds_2d = ComputeHeightMap(glm::xz(chunkOrigin), lod, 191122);
-        if (ApplyAmplitude(bounds_2d.max) < chunkOrigin.y)
+
+        bool sphere_found = false;
+        for (int i = edit_spheres_stack.size() - 1; i >= 0; i--)
+        {
+            glm::vec4 s = edit_spheres_stack[i];
+            if (IntersectSphereAABB3D(s.x, s.y, s.z, glm::abs(s.w),
+                chunkOrigin.x, 
+                chunkOrigin.y, 
+                chunkOrigin.z,
+                chunkOrigin.x + chunkSize,
+                chunkOrigin.y + chunkSize,
+                chunkOrigin.z + chunkSize,
+                nullptr))
+            {
+                sphere_found = true;
+                break;
+            }
+        }
+
+        if (!sphere_found && ApplyAmplitude(bounds_2d.max) < chunkOrigin.y)
             return false;
 
         auto bounds = ComputeDensityMap(chunkOrigin, lod, 191122);
+        glm::vec3 offset_y(0.f);
+        if (lod < 10)
+        {
+            offset_y.y = voxelSize;
+        }
 
 
         for (uint32_t z = 0; z < m_ChunkAxisCount; z++)
@@ -468,13 +513,42 @@ public:
                     glm::vec3 voxelOrigin = chunkOrigin + glm::vec3(xyz) * voxelSize;
                     
                     uint32_t col;
-                    float d = GetDensity(x, y, z, &col);
-                    float h = GetHeight(x, z, &col);
-                    if (voxelOrigin.y > h)
-                        break;
+                    bool sphere_overrides = false;
+                    if (edit_spheres_stack.size() > 0)
+                    {
+                        int remove = -1;
+                        for (int i = edit_spheres_stack.size() - 1; i >= 0; i--)
+                        {
+                            glm::vec4 s = edit_spheres_stack[i];
 
-                    if (d <= 0.f)
-                        continue;
+                            if (IntersectSphereAABB3D(s.x, s.y, s.z, glm::abs(s.w),
+                                voxelOrigin.x, voxelOrigin.y, voxelOrigin.z,
+                                voxelOrigin.x + voxelSize,
+                                voxelOrigin.y + voxelSize,
+                                voxelOrigin.z + voxelSize,
+                                nullptr))
+                            {
+                                remove = (s.w < 0.f);
+                                sphere_overrides = true;
+                                break;
+                            }
+                        }
+                        if (remove == 1)
+                            continue;
+                        if (remove == 0)
+                            col = MAKE_COLOR(255, 0, 0, 255);
+                    }
+                    if (!sphere_overrides)
+                    {
+                        float d = GetDensity(x, y, z, &col);
+                        float h = GetHeight(x, z, &col, voxelOrigin.y, voxelSize, d);
+
+                        if (voxelOrigin.y > h)
+                            break;
+
+                        if (d <= 0.f)
+                            continue;
+                    }
 
                     // X NX Y NY Z NZ
                     bool positive = true;
@@ -500,9 +574,28 @@ public:
 
                         uint32_t ncol;
                         float nd = GetDensity(nx, ny, nz, &ncol);
-                        float nh = GetHeight(nx, nz, &ncol);
+                        float nh = GetHeight(nx, nz, &ncol, 0, voxelSize, nd);
 
-                        bool is_neighbor_empty = nd <= 0.f || nh < neighborOrigin.y;
+
+                        bool is_neighbor_empty = (nd <= 0.f || nh < neighborOrigin.y);
+
+                        for (int i = edit_spheres_stack.size() - 1; i >= 0; i--)
+                        {
+                            glm::vec4 s = edit_spheres_stack[i];
+
+                            if (IntersectSphereAABB3D(s.x, s.y, s.z, glm::abs(s.w),
+                                neighborOrigin.x, neighborOrigin.y, neighborOrigin.z,
+                                neighborOrigin.x + voxelSize, 
+                                neighborOrigin.y + voxelSize, 
+                                neighborOrigin.z + voxelSize,
+                                nullptr))
+                            {
+                                is_neighbor_empty = (s.w < 0.f);
+
+                                break;
+                            }
+                        }
+
                         if (is_neighbor_empty) // should emit face
                         {
                             glm::vec4 face[4];
@@ -518,7 +611,7 @@ public:
                                 offset[axes.x] = mask.x;
                                 offset[axes.y] = mask.y;
 
-                                face[f] = glm::vec4(currFaceOrigin + voxelSize * offset - chunkOrigin, std::bit_cast<float>(col));
+                                face[f] = glm::vec4(currFaceOrigin + voxelSize * offset - chunkOrigin - offset_y, std::bit_cast<float>(col));
                             }
                             m_StagingVertices.push_back(face[0]);
                             m_StagingVertices.push_back(face[positive ? 1 : 2]);
@@ -551,7 +644,7 @@ public:
     }
 
     float m_RootSize = WORLD_SIZE;
-    uint32_t m_ChunkAxisCount = 32;
+    uint32_t m_ChunkAxisCount = 16;
 
     std::vector<glm::vec4> m_StagingVertices;
 };
@@ -564,13 +657,21 @@ struct builder_info
 {
     glm::vec3 p;
     FlatOctree* tree;
+    glm::vec4 reload_sphere;
 };
 
-uint8_t octree_generate_max_depth = 15;
+uint8_t octree_generate_max_depth = 22;
 void octree_generate(FlatOctree* octree, glm::vec3 p)
 {
     //octree->Generate(4, octree_generate_max_depth, p.x, p.y, p.z, 0.1f, 512.f,2.f);
-    octree->Generate(4, octree_generate_max_depth, p.x, p.y, p.z, 0.f, 1024.f * 64, 512.f);
+    octree->Generate(4, octree_generate_max_depth, p.x, p.y, p.z, 0.f, 32 * 1024.f * 1024, 1024.f * 1024);
+}
+
+void octree_reload_leafs(FlatOctree* octree, glm::vec4 sphere)
+{
+    sphere.w = glm::abs(sphere.w);
+
+    octree->RegenerateLeafsInSphere(sphere);
 }
 
 std::mutex tree_builder_mtx;
@@ -581,7 +682,8 @@ enum builder_state
 {
     IDLE,
     REQUEST,
-    READY
+    READY,
+    REQUEST_RELOAD
 };
 std::atomic<builder_state> tree_builder_state = builder_state::IDLE;
 
@@ -626,50 +728,57 @@ static void tree_builder(app_data_t* data)
     while (true)
     {
         std::unique_lock lock(tree_builder_mtx);
-        tree_builder_cv.wait(lock, [&]() {return tree_builder_state == builder_state::REQUEST; });
+        tree_builder_cv.wait(lock, [&]() {return tree_builder_state == builder_state::REQUEST || tree_builder_state == builder_state::REQUEST_RELOAD; });
         
-        octree_generate(&data->octree, tree_builder_info.p);
-        tree_builder_state = builder_state::READY;
+        if (tree_builder_state == builder_state::REQUEST)
+        {
+            octree_generate(&data->octree, tree_builder_info.p);
+            tree_builder_state = builder_state::READY;
 
-        data->octree.ForEachLeafRemoved(
-            [&](packed_leaf3d_t leaf)
-            {
-                if (data->loaded_chunk_to_cmd_idx_map.find(leaf.packed) == data->loaded_chunk_to_cmd_idx_map.end())
+            data->octree.ForEachLeafRemoved(
+                [&](packed_leaf3d_t leaf)
                 {
-                    return;
+                    if (data->loaded_chunk_to_cmd_idx_map.find(leaf.packed) == data->loaded_chunk_to_cmd_idx_map.end())
+                    {
+                        return;
+                    }
+                    size_t cmd_offset = data->loaded_chunk_to_cmd_idx_map[leaf.packed];
+
+                    DrawArraysIndirectCommand cmd = data->terrain_draw_cmds[cmd_offset];
+                    size_t swap_cmd_offset = data->terrain_draw_cmds.size() - 1;
+
+                    packed_leaf3d_raw_t swap_leaf = data->loaded_cmd_idx_to_chunk_map[swap_cmd_offset];
+
+                    data->terrain_draw_cmds[cmd_offset] = data->terrain_draw_cmds[swap_cmd_offset];
+                    data->chunk_positions_cmds[cmd_offset] = data->chunk_positions_cmds[swap_cmd_offset];
+
+                    data->terrain_draw_cmds.pop_back();
+                    data->chunk_positions_cmds.pop_back();
+                    data->chunk_positions_cmds_set.erase(leaf.packed);
+
+                    data->loaded_chunk_to_cmd_idx_map.erase(leaf.packed);
+                    data->loaded_cmd_idx_to_chunk_map.erase(swap_cmd_offset);
+
+                    data->loaded_chunk_to_cmd_idx_map[swap_leaf] = cmd_offset;
+                    data->loaded_cmd_idx_to_chunk_map[cmd_offset] = swap_leaf;
+
+                    data->vertex_free_list.AddMemoryBlock(cmd.first * sizeof(glm::vec4), cmd.count * sizeof(glm::vec4));
                 }
-                size_t cmd_offset = data->loaded_chunk_to_cmd_idx_map[leaf.packed];
+            );
+            data->vertex_free_list.Defragment();
 
-                DrawArraysIndirectCommand cmd = data->terrain_draw_cmds[cmd_offset];
-                size_t swap_cmd_offset = data->terrain_draw_cmds.size() - 1;
+            data->octree.ForEachLeafAdded(
+                [&](packed_leaf3d_t leaf)
+                {
+                    //printf("chunk request %i: %i, %i, %i\n", leaf.lod, leaf.x, leaf.y, leaf.z);
+                    taskQueue.Enqueue({ leaf.x, leaf.y, leaf.z, leaf.lod });
+                }
+            );
+        }
+        if (tree_builder_state == builder_state::REQUEST_RELOAD)
+        {
+        }
 
-                packed_leaf3d_raw_t swap_leaf = data->loaded_cmd_idx_to_chunk_map[swap_cmd_offset];
-
-                data->terrain_draw_cmds[cmd_offset] = data->terrain_draw_cmds[swap_cmd_offset];
-                data->chunk_positions_cmds[cmd_offset] = data->chunk_positions_cmds[swap_cmd_offset];
-
-                data->terrain_draw_cmds.pop_back();
-                data->chunk_positions_cmds.pop_back();
-                data->chunk_positions_cmds_set.erase(leaf.packed);
-
-                data->loaded_chunk_to_cmd_idx_map.erase(leaf.packed);
-                data->loaded_cmd_idx_to_chunk_map.erase(swap_cmd_offset);
-
-                data->loaded_chunk_to_cmd_idx_map[swap_leaf] = cmd_offset;
-                data->loaded_cmd_idx_to_chunk_map[cmd_offset] = swap_leaf;
-
-                data->vertex_free_list.AddMemoryBlock(cmd.first * sizeof(glm::vec4), cmd.count * sizeof(glm::vec4));
-            }
-        );
-        data->vertex_free_list.Defragment();
-
-        data->octree.ForEachLeafAdded(
-            [&](packed_leaf3d_t leaf)
-            {
-                //printf("chunk request %i: %i, %i, %i\n", leaf.lod, leaf.x, leaf.y, leaf.z);
-                taskQueue.Enqueue({ leaf.x, leaf.y, leaf.z, leaf.lod });
-            }
-        );
 
         tree_builder_state = builder_state::IDLE;
     }
@@ -748,17 +857,18 @@ private:
 };
 int frame_update(void* user_data)
 {
-
     static uint64_t total_added = 0;
     static uint64_t total_removed = 0;
     app_data_t* data = reinterpret_cast<app_data_t*>(user_data);
     FirstPersonCamera& cam = data->camera;
     static OnceGuard click_guard;
+    static OnceGuard edit_guard;
+    static OnceGuard edit_guard_remove;
     static OnceGuard add_guard;
     static OnceGuard sub_guard;
     static OnceGuard treshold_guard;
     static uint64_t frame_index = 0;
-    if (frame_index % 1024 == 0)
+    if (false && frame_index % 1024 == 0)
     {
         //data->vertex_free_list.DebugPrint(1024*1024*64);
         printf("tasks: %i\n", taskQueue.Size());
@@ -874,6 +984,58 @@ int frame_update(void* user_data)
     if (glfwGetKey(data->engine->window, GLFW_KEY_D) == GLFW_PRESS)
         cam.Translate(-speed * glm::normalize(glm::cross(WorldDirection::Up, cam.GetForwardVector())));
 
+
+    static float edit_sphere_radius = 16.f;
+    if (glfwGetKey(data->engine->window, GLFW_KEY_LEFT) == GLFW_PRESS)
+    {
+        edit_sphere_radius *= glm::pow(16.f, data->engine->delta_time);
+        edit_sphere_radius = glm::clamp(edit_sphere_radius,0.125f, WORLD_SIZE);
+        std::cout << edit_sphere_radius << '\n';
+    }
+    if (glfwGetKey(data->engine->window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+    {
+        edit_sphere_radius /= glm::pow(16.f, data->engine->delta_time);
+        edit_sphere_radius = glm::clamp(edit_sphere_radius,0.125f, WORLD_SIZE);
+        std::cout << edit_sphere_radius << '\n';
+    }
+    if (edit_guard.is_first(glfwGetMouseButton(data->engine->window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS))
+    {
+
+        float depth = 0.0f;
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, data->engine->renderer.framebuffer);
+
+        glReadPixels(data->engine->renderer.viewport.x / 2, data->engine->renderer.viewport.y / 2,
+            1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
+
+        float n = WORLD_SIZE * 4.0f;
+        float f = 0.125f;
+
+        float distance = (n * f) / (depth * (n - f) + f);
+
+        printf("Direct Depth: %f | Distance: %f m\n", depth, distance);
+
+        glm::vec4 sphere(cam.GetPosition() + distance * cam.GetForwardVector() + glm::vec3(data->camera_chunk_pos) * 8.f, edit_sphere_radius);
+        edit_spheres_stack.push_back(sphere);
+    }
+    if (edit_guard_remove.is_first(glfwGetMouseButton(data->engine->window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS))
+    {
+        float depth = 0.0f;
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, data->engine->renderer.framebuffer);
+
+        glReadPixels(data->engine->renderer.viewport.x / 2, data->engine->renderer.viewport.y / 2,
+            1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
+
+        float n = WORLD_SIZE * 4.0f;
+        float f = 0.125f;
+
+        float distance = (n * f) / (depth * (n - f) + f);
+        glm::vec4 sphere(cam.GetPosition() + distance * cam.GetForwardVector() + glm::vec3(data->camera_chunk_pos) * 8.f, -edit_sphere_radius);
+        edit_spheres_stack.push_back(sphere);
+    }
+
+
     for (int i = 0; i < world_preset::count; i++)
     {
         if (glfwGetKey(data->engine->window, GLFW_KEY_1 + i) == GLFW_PRESS)
@@ -930,17 +1092,19 @@ int frame_render(Renderer* renderer, void* user_data)
         sp.bind();
         sp.uniform1ui("u_offset", 0u);
         sp.uniformMat4("u_view_matrix", data->camera.GetViewMatrix());
-        if(glfwGetKey(data->engine->window, GLFW_KEY_C) == GLFW_PRESS)
+        if (glfwGetKey(data->engine->window, GLFW_KEY_C) == GLFW_PRESS)
             sp.uniformMat4("u_proj_matrix", data->camera.GetOrthoProjectionMatrix());
         else
             sp.uniformMat4("u_proj_matrix", data->camera.GetProjectionMatrix());
-        
+
         glBindVertexArray(data->dummy_vao);
 
         sp.uniform1ui("u_render_cube", 1u);
         sp.uniform1f("u_world_size", WORLD_SIZE);
 
+        double min = std::numeric_limits<double>::max();
         if (glfwGetKey(data->engine->window, GLFW_KEY_TAB) == GLFW_PRESS)
+        {
             for (auto& leaf : data->chunk_positions_cmds)
             {
                 glm::vec4 xyz_size;
@@ -948,9 +1112,12 @@ int frame_render(Renderer* renderer, void* user_data)
                 xyz_size.x = leaf.x * xyz_size.w;
                 xyz_size.y = leaf.y * xyz_size.w;
                 xyz_size.z = leaf.z * xyz_size.w;
+                min = glm::min(min, double(xyz_size.w));
                 sp.uniform4f("u_cube_xyz_size", xyz_size);
                 glDrawArrays(GL_LINES, 0, 24);
             }
+            printf("min chunksize: %f", min);
+        }
         sp.uniform1ui("u_render_cube", 0u);
         
         sp.uniform1ui("u_render_triangle", 1u);
@@ -1025,16 +1192,14 @@ int app_create(App* app)
     data->chunk_positions_cmds_buffer.Create();
     
     glCreateVertexArrays(1, &data->dummy_vao);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glEnable(GL_CULL_FACE);
+    
 
     {
         FirstPersonCameraSettings camera_settings;
         camera_settings.position = { 0,0,0 };
         camera_settings.direction = { 0,0,-1 };
-        camera_settings.farPlane = 4*WORLD_SIZE;
-        camera_settings.nearPlane = 0.125f;
+        camera_settings.nearPlane = 4*WORLD_SIZE;
+        camera_settings.farPlane = 0.125f;
         camera_settings.fov = 45.f;
         camera_settings.width = width;
         camera_settings.height = height;

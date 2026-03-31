@@ -6,7 +6,10 @@ typedef struct Renderer
     glm::ivec2 viewport;
     glm::vec4 clear_color;
     uint32_t framebuffer;
+    uint32_t screen_texture;
+    uint32_t depth_texture;
 } Renderer;
+
 
 void renderer_set_viewport(Renderer* renderer, glm::ivec2 new_viewport)
 {
@@ -16,6 +19,36 @@ void renderer_set_viewport(Renderer* renderer, glm::ivec2 new_viewport)
 void renderer_set_clear_color(Renderer* renderer, glm::vec4 new_clear_color)
 {
     renderer->clear_color = new_clear_color;
+}
+
+void renderer_create(Renderer* renderer)
+{
+    glCreateFramebuffers(1, &renderer->framebuffer);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &renderer->screen_texture);
+    glCreateTextures(GL_TEXTURE_2D, 1, &renderer->depth_texture);
+
+    glTextureStorage2D(renderer->screen_texture, 1, GL_RGBA8, renderer->viewport.x, renderer->viewport.y);
+    glTextureStorage2D(renderer->depth_texture, 1, GL_DEPTH_COMPONENT32F, renderer->viewport.x, renderer->viewport.y);
+
+    glTextureParameteri(renderer->depth_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(renderer->depth_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(renderer->depth_texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(renderer->depth_texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glTextureParameteri(renderer->screen_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(renderer->screen_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(renderer->screen_texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(renderer->screen_texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glNamedFramebufferTexture(renderer->framebuffer, GL_COLOR_ATTACHMENT0, renderer->screen_texture, 0);
+    glNamedFramebufferTexture(renderer->framebuffer, GL_DEPTH_ATTACHMENT, renderer->depth_texture, 0);
+
+    if (glCheckNamedFramebufferStatus(renderer->framebuffer, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        printf("error: framebuffer not complete!\n");
+    }
+
 }
 
 typedef int(*pfn_update)(void*);
@@ -65,7 +98,7 @@ int engine_init(Engine* engine,
     if (!glfwInit())
         return 1;
 
-    renderer_set_viewport(&engine->renderer, { width, height });
+   
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -105,6 +138,14 @@ int engine_init(Engine* engine,
             0, nullptr, GL_TRUE);
     }
 
+    renderer_set_viewport(&engine->renderer, { width, height });
+    renderer_create(&engine->renderer);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glDepthFunc(GL_GREATER);
+    glClearDepth(0.f);
+    glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+
     return 0;
 }
 
@@ -123,9 +164,7 @@ int engine_run(Engine* engine)
             break;
         }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, engine->renderer.viewport.x, engine->renderer.viewport.y);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
 
         int result = engine->pfn_update_frame(engine->user_data);
         if (result != 0)
@@ -133,6 +172,10 @@ int engine_run(Engine* engine)
             engine->is_running = false;
             return result;
         }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, engine->renderer.framebuffer);
+        glViewport(0, 0, engine->renderer.viewport.x, engine->renderer.viewport.y);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         result = engine->pfn_render_frame(&engine->renderer, engine->user_data);
         if (result != 0)
         {
@@ -142,6 +185,12 @@ int engine_run(Engine* engine)
         if (glfwWindowShouldClose(engine->window))
             break;
 
+        glBlitNamedFramebuffer(engine->renderer.framebuffer, 0,
+            0, 0, 
+            engine->renderer.viewport.x, engine->renderer.viewport.y, 
+            0, 0, 
+            engine->renderer.viewport.x, engine->renderer.viewport.y, 
+            GL_COLOR_BUFFER_BIT, GL_NEAREST);
         glfwSwapBuffers(engine->window);
         last_time = current_time;
     }
