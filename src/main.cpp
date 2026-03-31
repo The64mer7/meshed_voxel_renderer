@@ -5,7 +5,9 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/vec_swizzle.hpp>
 
-#define WORLD_SIZE float(0b10000000000000000000000000ull)
+#define WORLD_SIZEUI (1ull << 25ull)
+#define WORLD_SIZE float(WORLD_SIZEUI)
+#define CHUNK_SIZE(lod) (WORLD_SIZEUI >> (lod))
 
 #include <thread>
 #include <mutex>
@@ -286,7 +288,7 @@ public:
 
     float ApplyAmplitude(float v)
     {
-        return 64.0f + (32.0f * v);
+        return 1024.f + (32.0f * v);
     }
 
     float GetHeight(int x, int z, uint32_t* outColor, float y, float vox_size, float d = 0.f) // -1 to m_ChunkAxisCount
@@ -640,10 +642,9 @@ public:
 
     float ChunkSize(int32_t lod)
     {
-        return m_RootSize / glm::pow(2, lod);
+        return CHUNK_SIZE(lod);
     }
 
-    float m_RootSize = WORLD_SIZE;
     uint32_t m_ChunkAxisCount = 16;
 
     std::vector<glm::vec4> m_StagingVertices;
@@ -723,6 +724,36 @@ struct app_data_t
     ShaderProgram render_shader_program;
 };
 
+static bool remove_leaf(app_data_t* data, packed_leaf3d_t leaf)
+{
+    if (data->loaded_chunk_to_cmd_idx_map.find(leaf.packed) == data->loaded_chunk_to_cmd_idx_map.end())
+    {
+        return false;
+    }
+    size_t cmd_offset = data->loaded_chunk_to_cmd_idx_map[leaf.packed];
+
+    DrawArraysIndirectCommand cmd = data->terrain_draw_cmds[cmd_offset];
+    size_t swap_cmd_offset = data->terrain_draw_cmds.size() - 1;
+
+    packed_leaf3d_raw_t swap_leaf = data->loaded_cmd_idx_to_chunk_map[swap_cmd_offset];
+
+    data->terrain_draw_cmds[cmd_offset] = data->terrain_draw_cmds[swap_cmd_offset];
+    data->chunk_positions_cmds[cmd_offset] = data->chunk_positions_cmds[swap_cmd_offset];
+
+    data->terrain_draw_cmds.pop_back();
+    data->chunk_positions_cmds.pop_back();
+    data->chunk_positions_cmds_set.erase(leaf.packed);
+
+    data->loaded_chunk_to_cmd_idx_map.erase(leaf.packed);
+    data->loaded_cmd_idx_to_chunk_map.erase(swap_cmd_offset);
+
+    data->loaded_chunk_to_cmd_idx_map[swap_leaf] = cmd_offset;
+    data->loaded_cmd_idx_to_chunk_map[cmd_offset] = swap_leaf;
+
+    data->vertex_free_list.AddMemoryBlock(cmd.first * sizeof(glm::vec4), cmd.count * sizeof(glm::vec4));
+    return true;
+}
+
 static void tree_builder(app_data_t* data)
 {
     while (true)
@@ -738,31 +769,7 @@ static void tree_builder(app_data_t* data)
             data->octree.ForEachLeafRemoved(
                 [&](packed_leaf3d_t leaf)
                 {
-                    if (data->loaded_chunk_to_cmd_idx_map.find(leaf.packed) == data->loaded_chunk_to_cmd_idx_map.end())
-                    {
-                        return;
-                    }
-                    size_t cmd_offset = data->loaded_chunk_to_cmd_idx_map[leaf.packed];
-
-                    DrawArraysIndirectCommand cmd = data->terrain_draw_cmds[cmd_offset];
-                    size_t swap_cmd_offset = data->terrain_draw_cmds.size() - 1;
-
-                    packed_leaf3d_raw_t swap_leaf = data->loaded_cmd_idx_to_chunk_map[swap_cmd_offset];
-
-                    data->terrain_draw_cmds[cmd_offset] = data->terrain_draw_cmds[swap_cmd_offset];
-                    data->chunk_positions_cmds[cmd_offset] = data->chunk_positions_cmds[swap_cmd_offset];
-
-                    data->terrain_draw_cmds.pop_back();
-                    data->chunk_positions_cmds.pop_back();
-                    data->chunk_positions_cmds_set.erase(leaf.packed);
-
-                    data->loaded_chunk_to_cmd_idx_map.erase(leaf.packed);
-                    data->loaded_cmd_idx_to_chunk_map.erase(swap_cmd_offset);
-
-                    data->loaded_chunk_to_cmd_idx_map[swap_leaf] = cmd_offset;
-                    data->loaded_cmd_idx_to_chunk_map[cmd_offset] = swap_leaf;
-
-                    data->vertex_free_list.AddMemoryBlock(cmd.first * sizeof(glm::vec4), cmd.count * sizeof(glm::vec4));
+                    remove_leaf(data, leaf);
                 }
             );
             data->vertex_free_list.Defragment();
@@ -770,13 +777,37 @@ static void tree_builder(app_data_t* data)
             data->octree.ForEachLeafAdded(
                 [&](packed_leaf3d_t leaf)
                 {
-                    //printf("chunk request %i: %i, %i, %i\n", leaf.lod, leaf.x, leaf.y, leaf.z);
                     taskQueue.Enqueue({ leaf.x, leaf.y, leaf.z, leaf.lod });
                 }
             );
         }
         if (tree_builder_state == builder_state::REQUEST_RELOAD)
         {
+            printf("reloading...\n");
+            data->octree.ForEachLeaf(
+                [&](packed_leaf3d_t leaf)
+                {
+                    glm::vec4 chunk;
+                    chunk.w = WORLD_SIZE / glm::pow(2, leaf.lod);
+                    chunk.x = leaf.x * chunk.w;
+                    chunk.y = leaf.y * chunk.w;
+                    chunk.z = leaf.z * chunk.w;
+
+                    if (IntersectSphereAABB3D(
+                        tree_builder_info.reload_sphere.x,
+                        tree_builder_info.reload_sphere.y,
+                        tree_builder_info.reload_sphere.z,
+                        glm::abs(tree_builder_info.reload_sphere.w),
+                        chunk.x, chunk.y, chunk.z, chunk.x + chunk.w, chunk.y + chunk.w, chunk.z + chunk.w, nullptr))
+                    {
+                        if (data->chunk_positions_cmds_set.contains(leaf.packed))
+                            remove_leaf(data, leaf);
+                        taskQueue.Enqueue(leaf.packed);
+                    }
+                }
+            );
+
+
         }
 
 
@@ -868,6 +899,10 @@ int frame_update(void* user_data)
     static OnceGuard sub_guard;
     static OnceGuard treshold_guard;
     static uint64_t frame_index = 0;
+    
+    static glm::vec4 sphere_request;
+    static bool did_edit = false;
+
     if (false && frame_index % 1024 == 0)
     {
         //data->vertex_free_list.DebugPrint(1024*1024*64);
@@ -939,8 +974,17 @@ int frame_update(void* user_data)
             else
                 break;
         }
-
-    if (
+    if (did_edit)
+    {
+        printf("edit\n");
+        tree_builder_mtx.lock();
+        tree_builder_info = { .tree = &data->octree, .reload_sphere = sphere_request };
+        tree_builder_state = builder_state::REQUEST_RELOAD;
+        tree_builder_mtx.unlock();
+        tree_builder_cv.notify_one();
+        did_edit = false;
+    }
+    else if (
         (glm::distance(cam.GetPosition(), data->octree_build_pos) > data->octree_rebuild_distance_treshold ||
             click_guard.is_first(glfwGetKey(data->engine->window, GLFW_KEY_B) == GLFW_PRESS)
         ) &&
@@ -962,6 +1006,8 @@ int frame_update(void* user_data)
                 tree_builder_mtx.unlock();
         }
     }
+
+    
 
     double xpos = 0, ypos = 0;
     glfwGetCursorPos(data->engine->window, &xpos, &ypos);
@@ -986,13 +1032,13 @@ int frame_update(void* user_data)
 
 
     static float edit_sphere_radius = 16.f;
-    if (glfwGetKey(data->engine->window, GLFW_KEY_LEFT) == GLFW_PRESS)
+    if (glfwGetKey(data->engine->window, GLFW_KEY_UP) == GLFW_PRESS)
     {
         edit_sphere_radius *= glm::pow(16.f, data->engine->delta_time);
         edit_sphere_radius = glm::clamp(edit_sphere_radius,0.125f, WORLD_SIZE);
         std::cout << edit_sphere_radius << '\n';
     }
-    if (glfwGetKey(data->engine->window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+    if (glfwGetKey(data->engine->window, GLFW_KEY_DOWN) == GLFW_PRESS)
     {
         edit_sphere_radius /= glm::pow(16.f, data->engine->delta_time);
         edit_sphere_radius = glm::clamp(edit_sphere_radius,0.125f, WORLD_SIZE);
@@ -1000,7 +1046,6 @@ int frame_update(void* user_data)
     }
     if (edit_guard.is_first(glfwGetMouseButton(data->engine->window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS))
     {
-
         float depth = 0.0f;
 
         glBindFramebuffer(GL_READ_FRAMEBUFFER, data->engine->renderer.framebuffer);
@@ -1015,8 +1060,9 @@ int frame_update(void* user_data)
 
         printf("Direct Depth: %f | Distance: %f m\n", depth, distance);
 
-        glm::vec4 sphere(cam.GetPosition() + distance * cam.GetForwardVector() + glm::vec3(data->camera_chunk_pos) * 8.f, edit_sphere_radius);
-        edit_spheres_stack.push_back(sphere);
+        sphere_request = glm::vec4(cam.GetPosition() + distance * cam.GetForwardVector() + glm::vec3(data->camera_chunk_pos) * 8.f, edit_sphere_radius);
+        edit_spheres_stack.push_back(sphere_request);
+        did_edit = true;
     }
     if (edit_guard_remove.is_first(glfwGetMouseButton(data->engine->window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS))
     {
@@ -1031,8 +1077,9 @@ int frame_update(void* user_data)
         float f = 0.125f;
 
         float distance = (n * f) / (depth * (n - f) + f);
-        glm::vec4 sphere(cam.GetPosition() + distance * cam.GetForwardVector() + glm::vec3(data->camera_chunk_pos) * 8.f, -edit_sphere_radius);
-        edit_spheres_stack.push_back(sphere);
+        sphere_request = glm::vec4(cam.GetPosition() + distance * cam.GetForwardVector() + glm::vec3(data->camera_chunk_pos) * 8.f, -edit_sphere_radius);
+        edit_spheres_stack.push_back(sphere_request);
+        did_edit = true;
     }
 
 
@@ -1102,7 +1149,6 @@ int frame_render(Renderer* renderer, void* user_data)
         sp.uniform1ui("u_render_cube", 1u);
         sp.uniform1f("u_world_size", WORLD_SIZE);
 
-        double min = std::numeric_limits<double>::max();
         if (glfwGetKey(data->engine->window, GLFW_KEY_TAB) == GLFW_PRESS)
         {
             for (auto& leaf : data->chunk_positions_cmds)
@@ -1112,11 +1158,9 @@ int frame_render(Renderer* renderer, void* user_data)
                 xyz_size.x = leaf.x * xyz_size.w;
                 xyz_size.y = leaf.y * xyz_size.w;
                 xyz_size.z = leaf.z * xyz_size.w;
-                min = glm::min(min, double(xyz_size.w));
                 sp.uniform4f("u_cube_xyz_size", xyz_size);
                 glDrawArrays(GL_LINES, 0, 24);
             }
-            printf("min chunksize: %f", min);
         }
         sp.uniform1ui("u_render_cube", 0u);
         
@@ -1169,10 +1213,10 @@ int app_create(App* app)
 
     int engine_status = engine_init(&app->engine, frame_update, frame_render, app->data, width, height);
     
-    for(int i = 0; i < 12; i++)
+    for(int i = 0; i < std::thread::hardware_concurrency(); i++)
         app->data->generator_workers.emplace_back(data_generator);
     
-    glfwSwapInterval(0);
+    glfwSwapInterval(1);
 
     app_data_t* data = reinterpret_cast<app_data_t*>(app->data);
     data->engine = &app->engine;

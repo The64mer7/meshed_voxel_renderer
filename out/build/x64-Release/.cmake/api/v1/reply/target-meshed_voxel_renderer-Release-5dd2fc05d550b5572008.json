@@ -135,12 +135,12 @@
 	"dependencies" : 
 	[
 		{
-			"backtrace" : 3,
-			"id" : "glfw::@e43ad0a4af27ecc346ee"
-		},
-		{
 			"backtrace" : 4,
 			"id" : "update_shaders::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 3,
+			"id" : "glfw::@e43ad0a4af27ecc346ee"
 		},
 		{
 			"backtrace" : 3,

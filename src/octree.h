@@ -485,6 +485,12 @@ public:
         }
     }
 
+    void ForEachLeaf(std::function<void(packed_leaf3d_t)> fn_for_each)
+    {
+        for (packed_leaf3d_raw_t leaf_raw : m_curr_leaves)
+            fn_for_each(packed_leaf3d_t{ leaf_raw });
+    }
+
     void ForEachLeafRemoved(std::function<void(packed_leaf3d_t)> fn_for_each)
     {
         for (packed_leaf3d_raw_t leaf_raw : m_prev_leaves)
