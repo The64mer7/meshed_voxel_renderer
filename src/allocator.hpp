@@ -9,6 +9,7 @@
 
 #include <unordered_map>
 #include <map>
+#include <array>
 #include <glad/gl.h>
 
 #include <unordered_set>
@@ -68,6 +69,23 @@ public:
 		return true;
 	}
 
+	bool TryDequeueNonBlocking(T& out)
+	{
+		if (m_Mtx.try_lock())
+		{
+			if (m_Queue.empty())
+			{
+				m_Mtx.unlock();
+				return false;
+			}
+			out = m_Queue.front();
+			m_Queue.pop();
+			m_Mtx.unlock();
+			return true;
+		}
+		return false;
+	}
+
 	bool TryFront(T& out)
 	{
 		std::lock_guard lock(m_Mtx);
@@ -106,6 +124,124 @@ private:
 	std::mutex m_Mtx;
 	std::queue<T> m_Queue;
 };
+
+template <typename T, uint8_t N>
+class ThreadSafePriorityQueue
+{
+public:
+
+	uint8_t GetMaxPriority()
+	{
+		return N;
+	}
+
+	void NotifyAll()
+	{
+		m_Cv.notify_all();
+	}
+
+	void Enqueue(const T& value, uint8_t priority)
+	{
+		{
+			std::lock_guard lock(m_Mtx);
+			m_Queues[priority].push(value);
+			m_ElemCount++;
+		}
+		m_Cv.notify_one();
+	}
+
+	bool TryDequeue(T& out)
+	{
+		std::lock_guard lock(m_Mtx);
+
+		auto& queue = NonEmptyQueue();
+		if (queue.empty())
+			return false;
+		
+		out = queue.front();
+		queue.pop();
+		m_ElemCount--;
+
+		return true;
+	}
+
+	bool TryDequeueNonBlocking(T& out)
+	{
+		if (m_Mtx.try_lock())
+		{
+			auto& queue = NonEmptyQueue();
+
+			if (queue.empty())
+			{
+				m_Mtx.unlock();
+				return false;
+			}
+			out = queue.front();
+			queue.pop();
+			m_ElemCount--;
+
+			m_Mtx.unlock();
+			return true;
+		}
+		return false;
+	}
+
+	bool TryFront(T& out)
+	{
+		std::lock_guard lock(m_Mtx);
+		auto& queue = NonEmptyQueue();
+
+		if (queue.empty())
+			return false;
+
+		out = queue.front();
+
+		return true;
+	}
+
+	void WaitAndDequeue(T& out)
+	{
+		std::unique_lock lock(m_Mtx);
+		m_Cv.wait(lock, [this] {return m_ElemCount > 0; });
+		auto& queue = NonEmptyQueue();
+
+		out = queue.front();
+		queue.pop();
+		m_ElemCount--;
+	}
+
+	void Clear()
+	{
+		std::unique_lock lock(m_Mtx);
+		for (uint8_t i = 0; i < N; i++)
+			m_Queues[i] = std::queue<T>();
+		m_ElemCount = 0;
+	}
+
+	size_t Size()
+	{
+		std::unique_lock lock(m_Mtx);
+		return m_ElemCount;
+	}
+private:
+	std::queue<T>& NonEmptyQueue()
+	{
+		for (uint8_t i = 0; i < N; i++)
+		{
+			if (m_Queues[i].size() != 0)
+			{
+				return m_Queues[i];
+			}
+		}
+		return m_Queues[0];
+	}
+
+	uint64_t m_ElemCount = 0;
+	std::condition_variable m_Cv;
+	std::mutex m_Mtx;
+	std::array<std::queue<T>, N> m_Queues;
+};
+
 
 using offset_t = size_t;
 
@@ -207,6 +343,18 @@ public:
 		outOffset = *itSize->second.begin();
 
 		SplitMemoryBlockAndPopDesired(outOffset, storedSize, desiredSize);
+
+		return true;
+	}
+
+	bool FindOffset(size_t desiredSize)
+	{
+		std::lock_guard lock(m_RecMtx);
+
+		auto itSize = m_SizeToOffsets.lower_bound(desiredSize);
+
+		if (itSize == m_SizeToOffsets.end())
+			return false;
 
 		return true;
 	}

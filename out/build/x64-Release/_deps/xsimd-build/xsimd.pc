@@ -1,0 +1,8 @@
+prefix=C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/install/x64-Release
+libdir=C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/install/x64-Release/lib
+includedir=C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/install/x64-Release/include
+
+Name: xsimd
+Description: xsimd provides a unified means for using SIMD features for library authors..
+Version: 13.0.0
+Cflags: -I${includedir}

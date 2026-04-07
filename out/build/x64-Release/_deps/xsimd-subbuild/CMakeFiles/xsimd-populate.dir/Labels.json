@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/CMakeFiles/xsimd-populate"
+		},
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/CMakeFiles/xsimd-populate.rule"
+		},
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/CMakeFiles/xsimd-populate-complete.rule"
+		},
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/xsimd-populate-prefix/src/xsimd-populate-stamp/xsimd-populate-build.rule"
+		},
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/xsimd-populate-prefix/src/xsimd-populate-stamp/xsimd-populate-configure.rule"
+		},
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/xsimd-populate-prefix/src/xsimd-populate-stamp/xsimd-populate-download.rule"
+		},
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/xsimd-populate-prefix/src/xsimd-populate-stamp/xsimd-populate-install.rule"
+		},
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/xsimd-populate-prefix/src/xsimd-populate-stamp/xsimd-populate-mkdir.rule"
+		},
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/xsimd-populate-prefix/src/xsimd-populate-stamp/xsimd-populate-patch.rule"
+		},
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/xsimd-populate-prefix/src/xsimd-populate-stamp/xsimd-populate-test.rule"
+		},
+		{
+			"file" : "C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/xsimd-populate-prefix/src/xsimd-populate-stamp/xsimd-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"xsimd-populate"
+		],
+		"name" : "xsimd-populate"
+	}
+}

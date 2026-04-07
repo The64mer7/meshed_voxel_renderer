@@ -1,0 +1,100 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"install"
+		],
+		"files" : 
+		[
+			"out/build/x64-Release/_deps/xsimd-src/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 138,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 156,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 159,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 166,
+				"parent" : 0
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 1,
+			"component" : "Unspecified",
+			"destination" : "include",
+			"paths" : 
+			[
+				"out/build/x64-Release/_deps/xsimd-src/include/xsimd"
+			],
+			"type" : "directory"
+		},
+		{
+			"backtrace" : 2,
+			"component" : "Unspecified",
+			"destination" : "lib/cmake/xsimd",
+			"paths" : 
+			[
+				"out/build/x64-Release/_deps/xsimd-build/xsimdConfig.cmake",
+				"out/build/x64-Release/_deps/xsimd-build/xsimdConfigVersion.cmake"
+			],
+			"type" : "file"
+		},
+		{
+			"backtrace" : 3,
+			"component" : "Unspecified",
+			"destination" : "lib/cmake/xsimd",
+			"exportName" : "xsimd-targets",
+			"exportTargets" : 
+			[
+				{
+					"id" : "xsimd::@5e6b151caf5853ee5a14",
+					"index" : 0
+				}
+			],
+			"paths" : 
+			[
+				"_deps/xsimd-build/CMakeFiles/Export/1b17eda7d5542ce3262a496b2c5f2a58/xsimdTargets.cmake"
+			],
+			"type" : "export"
+		},
+		{
+			"backtrace" : 4,
+			"component" : "Unspecified",
+			"destination" : "lib/pkgconfig",
+			"paths" : 
+			[
+				"out/build/x64-Release/_deps/xsimd-build/xsimd.pc"
+			],
+			"type" : "file"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "_deps/xsimd-build",
+		"source" : "out/build/x64-Release/_deps/xsimd-src"
+	}
+}

@@ -285,6 +285,10 @@ public:
 
     }
 
+    void GenerateByChunks(uint64_t min_depth, uint64_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, uint64_t chunks_per_lod)
+    {
+        Generate(min_depth, max_depth, circle_x, circle_y, circle_z, radius, further_radius, further_radius * glm::pow(0.5f, chunks_per_lod));
+    }
     void Generate(uint64_t min_depth, uint64_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, float intensity)
     {
         nodes.clear();
@@ -356,8 +360,7 @@ public:
                             float current_dist = sqrtf(dist2);
                             float relative_dist = (current_dist - radius) / (further_radius - radius);
 
-                            float log_t = std::log(1.0f + relative_dist * intensity) / std::log(1.0f + intensity);
-
+                            float log_t = glm::log2(1.0f + relative_dist * intensity) / glm::log2(1.0f + intensity);
                             float t = 1.f - log_t;
 
                             target_depth = t * (float)max_depth;
