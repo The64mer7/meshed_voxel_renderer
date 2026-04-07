@@ -1,3 +1,0 @@
-C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/CMakeFiles/xsimd-populate.dir
-C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/CMakeFiles/edit_cache.dir
-C:/Users/jaros/Desktop/Programming/COpenglProject/meshed_voxel_renderer/out/build/x64-Release/_deps/xsimd-subbuild/CMakeFiles/rebuild_cache.dir
