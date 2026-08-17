@@ -68,7 +68,7 @@ public:
 		m_Position = v;
 	}
 
-	glm::vec3 GetForwardVector()
+	glm::vec3 GetForwardVector() const
 	{
 		glm::vec3 forward;
 
@@ -79,22 +79,22 @@ public:
 		return glm::normalize(forward);
 	}
 
-	glm::vec3 GetPosition()
+	glm::vec3 GetPosition() const
 	{
 		return m_Position;
 	}
 
-	glm::mat4 GetViewMatrix()
+	glm::mat4 GetViewMatrix() const
 	{
 		return glm::lookAt(GetPosition(), GetPosition() + GetForwardVector(), WorldDirection::Up);
 	}
 
-	glm::mat4 GetProjectionMatrix()
+	glm::mat4 GetProjectionMatrix() const
 	{
 		return m_ProjectionMatrix;
 	}
 
-	glm::mat4 GetOrthoProjectionMatrix()
+	glm::mat4 GetOrthoProjectionMatrix() const
 	{
 		return m_OrthoProjectionMatrix;
 	}
@@ -111,4 +111,26 @@ private:
 	float m_Yaw, m_Pitch;
 	glm::mat4 m_ProjectionMatrix;
 	glm::mat4 m_OrthoProjectionMatrix;
+};
+
+struct ChunkRelativeFirstPersonCamera
+{
+	FirstPersonCamera camera;
+	glm::ivec3 chunk_offset;
+
+	glm::vec3 get_world_pos()
+	{
+		return glm::vec3(chunk_offset) * m_chunk_size + camera.GetPosition();
+	}
+
+	void update()
+	{
+		if (glm::any(glm::greaterThanEqual(glm::abs(camera.GetPosition()), glm::vec3(m_chunk_size))))
+		{
+			chunk_offset += (camera.GetPosition() / m_chunk_size);
+			camera.Translate(-glm::vec3(chunk_offset) * m_chunk_size);
+		}
+	}
+private:
+	float m_chunk_size = 8.f;
 };

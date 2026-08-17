@@ -8,7 +8,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
 
-bool IntersectSphereAABB3D(
+static bool IntersectSphereAABB3D(
     float sX, float sY, float sZ, float radius,
     float minX, float minY, float minZ,
     float maxX, float maxY, float maxZ,
@@ -50,11 +50,12 @@ inline bool operator==(const packed_leaf3d_t& lhs, const packed_leaf3d_t& rhs) {
     return lhs.packed == rhs.packed;
 }
 
+
+
 class Octree
 {
     std::unordered_set<packed_leaf3d_raw_t> m_curr_leaves;
     std::unordered_set<packed_leaf3d_raw_t> m_prev_leaves;
-
 
 public:
 
@@ -65,7 +66,7 @@ public:
 
     void Generate(uint64_t min_depth, uint64_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, float intensity)
     {
-        root.Clear();
+        root.cleanup();
         m_prev_leaves = std::move(m_curr_leaves);
         m_curr_leaves.clear();
 
@@ -228,7 +229,6 @@ public:
         return drawCount;
     }
 
-
     void ForEachLeafAdded(std::function<void(packed_leaf3d_t)> fn_for_each)
     {
         for (packed_leaf3d_raw_t leaf_raw : m_curr_leaves)
@@ -262,6 +262,16 @@ public:
     }
 };
 
+
+struct OctreeClipmapGenerateSettings
+{
+    uint32_t min_depth;
+    uint32_t max_depth;
+    float radius;
+    float further_radius;
+    uint32_t chunks_per_lod;
+};
+
 constexpr uint64_t invalid_id = UINT64_MAX;
 struct FlatOctreeNode
 {
@@ -269,27 +279,36 @@ struct FlatOctreeNode
     bool is_leaf = true;
 };
 
-class FlatOctree
+class OctreeClipmap
 {
     std::unordered_set<packed_leaf3d_raw_t> m_curr_leaves;
     std::unordered_set<packed_leaf3d_raw_t> m_prev_leaves;
 
 
 public:
+    const auto& get_leaves() const
+    {
+        return m_curr_leaves;
+    }
 
     std::vector<FlatOctreeNode> nodes;
 
     float px = 0.f, py = 0.f, pz = 0.f, s = 1024.f;
-    void RegenerateLeafsInSphere(glm::vec4 sphere)
+    
+    void GenerateByChunks(const OctreeClipmapGenerateSettings& settings, const glm::vec3& position)
     {
-
+        Generate(
+            settings.min_depth, 
+            settings.max_depth, 
+            position.x, 
+            position.y, 
+            position.z, 
+            settings.radius, 
+            settings.further_radius, 
+            settings.further_radius * glm::pow(0.5f, settings.chunks_per_lod)
+        );
     }
-
-    void GenerateByChunks(uint64_t min_depth, uint64_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, uint64_t chunks_per_lod)
-    {
-        Generate(min_depth, max_depth, circle_x, circle_y, circle_z, radius, further_radius, further_radius * glm::pow(0.5f, chunks_per_lod));
-    }
-    void Generate(uint64_t min_depth, uint64_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, float intensity)
+    void Generate(uint32_t min_depth, uint32_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, float intensity)
     {
         nodes.clear();
 
@@ -471,7 +490,6 @@ public:
         return drawCount;
     }
 
-
     void ForEachLeafAdded(std::function<void(packed_leaf3d_t)> fn_for_each)
     {
         for (packed_leaf3d_raw_t leaf_raw : m_curr_leaves)
@@ -479,10 +497,6 @@ public:
             packed_leaf3d_t leaf = { leaf_raw };
             if (m_prev_leaves.find(leaf_raw) == m_prev_leaves.end())
             {
-                //float size = powf(0.5f, leaf.lod) * s;
-                //float x = px + size * leaf.x;
-                //float y = py + size * leaf.y;
-                //float z = pz + size * leaf.z;
                 fn_for_each(leaf);
             }
         }

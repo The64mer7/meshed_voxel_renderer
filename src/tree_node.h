@@ -10,26 +10,33 @@ public:
     {
         return N;
     }
-    TreeNode() : children{}
+    TreeNode()
     {
-        allocated++;
+        for (auto& c : children) c = nullptr;
     }
     ~TreeNode()
     {
         for (auto* child : children)
         {
-            deallocated++;
             delete child;
         }
     }
-    inline static std::atomic<uint64_t> allocated{ 0 };
-    inline static std::atomic<uint64_t> deallocated{ 0 };
 
-    void Clear() {
+    bool is_leaf()
+    {
+        for (int i = 0; i < N; i++)
+        {
+            if (children[i])
+                return false;
+        }
+        return true;
+    }
+
+    void cleanup() {
         for (size_t i = 0; i < N; ++i) {
             if (children[i]) {
-                delete children[i];    // This triggers the destructor chain
-                children[i] = nullptr; // Crucial: prevent dangling pointers
+                delete children[i];
+                children[i] = nullptr;
             }
         }
     }

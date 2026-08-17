@@ -26,222 +26,15 @@
 #include <condition_variable>
 
 #include "buffer.hpp"
-//#include "gpu_utils.hpp"
-//#include "chunk_manager.hpp"
+#include "thread_safe_stack.hpp"
 
-//#include "GlQuery.hpp"
-
-std::string VectorToName(glm::ivec3 key, char sep)
+static std::string VectorToName(glm::ivec3 key, char sep)
 {
 	return std::to_string(key.x) + sep + std::to_string(key.y) + sep + std::to_string(key.z);
 }
 
 using namespace std::chrono_literals;
-bool g_DebugPrint = true;
-
-template <typename T>
-class ThreadSafeQueue
-{
-public:
-	void NotifyAll()
-	{
-		m_Cv.notify_all();
-	}
-
-	void Enqueue(const T& value)
-	{
-		{
-			std::lock_guard lock(m_Mtx);
-			m_Queue.push(value);
-		}
-		m_Cv.notify_one();
-	}
-
-	bool TryDequeue(T& out)
-	{
-		std::lock_guard lock(m_Mtx);
-		if (m_Queue.empty())
-			return false;
-
-		out = m_Queue.front();
-		m_Queue.pop();
-
-		return true;
-	}
-
-	bool TryDequeueNonBlocking(T& out)
-	{
-		if (m_Mtx.try_lock())
-		{
-			if (m_Queue.empty())
-			{
-				m_Mtx.unlock();
-				return false;
-			}
-			out = m_Queue.front();
-			m_Queue.pop();
-			m_Mtx.unlock();
-			return true;
-		}
-		return false;
-	}
-
-	bool TryFront(T& out)
-	{
-		std::lock_guard lock(m_Mtx);
-		if (m_Queue.empty())
-			return false;
-
-		out = m_Queue.front();
-
-		return true;
-	}
-
-	void WaitAndDequeue(T& out)
-	{
-		std::unique_lock lock(m_Mtx);
-		m_Cv.wait(lock, [this] {return !m_Queue.empty(); });
-
-		out = m_Queue.front();
-		m_Queue.pop();
-	}
-
-	void Clear()
-	{
-		std::unique_lock lock(m_Mtx);
-		m_Queue = std::queue<T>();
-	}
-
-	size_t Size()
-	{
-		std::unique_lock lock(m_Mtx);
-		size_t size = m_Queue.size();
-		return size;
-	}
-private:
-
-	std::condition_variable m_Cv;
-	std::mutex m_Mtx;
-	std::queue<T> m_Queue;
-};
-
-template <typename T, uint8_t N>
-class ThreadSafePriorityQueue
-{
-public:
-
-	uint8_t GetMaxPriority()
-	{
-		return N;
-	}
-
-	void NotifyAll()
-	{
-		m_Cv.notify_all();
-	}
-
-	void Enqueue(const T& value, uint8_t priority)
-	{
-		{
-			std::lock_guard lock(m_Mtx);
-			m_Queues[priority].push(value);
-			m_ElemCount++;
-		}
-		m_Cv.notify_one();
-	}
-
-	bool TryDequeue(T& out)
-	{
-		std::lock_guard lock(m_Mtx);
-
-		auto& queue = NonEmptyQueue();
-		if (queue.empty())
-			return false;
-		
-		out = queue.front();
-		queue.pop();
-		m_ElemCount--;
-
-		return true;
-	}
-
-	bool TryDequeueNonBlocking(T& out)
-	{
-		if (m_Mtx.try_lock())
-		{
-			auto& queue = NonEmptyQueue();
-
-			if (queue.empty())
-			{
-				m_Mtx.unlock();
-				return false;
-			}
-			out = queue.front();
-			queue.pop();
-			m_ElemCount--;
-
-			m_Mtx.unlock();
-			return true;
-		}
-		return false;
-	}
-
-	bool TryFront(T& out)
-	{
-		std::lock_guard lock(m_Mtx);
-		auto& queue = NonEmptyQueue();
-
-		if (queue.empty())
-			return false;
-
-		out = queue.front();
-
-		return true;
-	}
-
-	void WaitAndDequeue(T& out)
-	{
-		std::unique_lock lock(m_Mtx);
-		m_Cv.wait(lock, [this] {return m_ElemCount > 0; });
-		auto& queue = NonEmptyQueue();
-
-		out = queue.front();
-		queue.pop();
-		m_ElemCount--;
-	}
-
-	void Clear()
-	{
-		std::unique_lock lock(m_Mtx);
-		for (uint8_t i = 0; i < N; i++)
-			m_Queues[i] = std::queue<T>();
-		m_ElemCount = 0;
-	}
-
-	size_t Size()
-	{
-		std::unique_lock lock(m_Mtx);
-		return m_ElemCount;
-	}
-private:
-	std::queue<T>& NonEmptyQueue()
-	{
-		for (uint8_t i = 0; i < N; i++)
-		{
-			if (m_Queues[i].size() != 0)
-			{
-				return m_Queues[i];
-			}
-		}
-		return m_Queues[0];
-	}
-
-	uint64_t m_ElemCount = 0;
-	std::condition_variable m_Cv;
-	std::mutex m_Mtx;
-	std::array<std::queue<T>, N> m_Queues;
-};
-
+inline static bool g_DebugPrint = true;
 
 using offset_t = size_t;
 
@@ -314,10 +107,18 @@ namespace std
 	};
 };
 
-class MemoryManager // change rec mutex to classic, lock just public API
+
+// TODO: change rec mutex to classic, lock just public API
+class MemoryManager
 {
 	using Offsets = std::set<offset_t>;
 public:
+	uint64_t id = -1;
+	MemoryManager()
+	{
+		static std::atomic_uint64_t id_gen = 0;
+		this->id = id_gen++;
+	}
 	size_t GetMaxSize()
 	{
 		std::lock_guard lock(m_RecMtx);
@@ -329,7 +130,7 @@ public:
 		m_MaxSize = size;
 	}
 
-	bool FindAndPopOffset(size_t desiredSize, offset_t& outOffset)
+	bool Allocate(size_t desiredSize, offset_t& outOffset)
 	{
 		std::lock_guard lock(m_RecMtx);
 
@@ -342,8 +143,7 @@ public:
 
 		outOffset = *itSize->second.begin();
 
-		SplitMemoryBlockAndPopDesired(outOffset, storedSize, desiredSize);
-
+		SplitMemoryBlockAllocate(outOffset, storedSize, desiredSize);
 		return true;
 	}
 
@@ -395,19 +195,62 @@ public:
 		}
 	}
 
-	void AddMemoryBlock(offset_t offset, size_t size)
+	void Insert(offset_t offset, size_t size)
 	{
 		std::lock_guard lock(m_RecMtx);
 
 		if (size == 0)
 			return;
+
+		bool merged = true;
+		while (merged)
+		{
+			merged = false;
+			auto it = m_OffsetToSize.lower_bound(offset);
+			if (it != m_OffsetToSize.begin())
+			{
+				auto prev = std::prev(it);
+				size_t prev_offset = prev->first;
+				size_t prev_size = prev->second;
+				offset_t prev_end = prev_offset + prev_size;
+
+				if (prev_end == offset)
+				{
+					offset = prev_offset;
+					size += prev_size;
+					AllocateAt(prev_offset, prev_size);
+					merged = true;
+				}
+			}
+		}
+		while (true)
+		{
+
+			auto next = m_OffsetToSize.lower_bound(offset);
+			if (next == m_OffsetToSize.end())
+				break;
+
+			size_t next_offset = next->first;
+			size_t next_size = next->second;
+			offset_t curr_end = offset + size;
+			
+			if (curr_end != next_offset)
+				break;
+			
+			size += next_size;
+			AllocateAt(next_offset, next_size);
+		}
+
+		assert(!m_OffsetToSize.contains(offset));
+		assert(!m_SizeToOffsets[size].contains(offset));
+
 		Offsets& offsets = m_SizeToOffsets[size];
 		offsets.insert(offset);
-
+		
 		m_OffsetToSize[offset] = size;
 	}
 
-	void RemoveMemoryBlock(offset_t offset, size_t size)
+	void AllocateAt(offset_t offset, size_t size)
 	{
 		std::lock_guard lock(m_RecMtx);
 
@@ -434,7 +277,7 @@ public:
 	void DebugPrint(uint64_t blockSize = KB(4))
 	{
 		std::lock_guard lock(m_RecMtx);
-		std::cout << "MEM: [\n";
+		std::cout << id << "id )" <<"MEM: [\n";
 		if (m_OffsetToSize.empty())
 			return;
 
@@ -453,34 +296,34 @@ public:
 			{
 				if (currRowSize++ >= memRowSize)
 				{
-					std::cout << '\n';
+					std::cout << id << "id )" <<'\n';
 					currRowSize = 0;
 				}
 			};
 
 		for (uint64_t i = 0; i < it->first / blockSize; i++)
 		{
-			std::cout << freeSlot; FnTryNewLine();
+			std::cout << id << "id )" <<freeSlot; FnTryNewLine();
 		}
-		std::cout << sep; FnTryNewLine();
+		std::cout << id << "id )" <<sep; FnTryNewLine();
 		while (it != m_OffsetToSize.end() && nextIt != m_OffsetToSize.end())
 		{
-			std::cout << sep; FnTryNewLine();
+			std::cout << id << "id )" <<sep; FnTryNewLine();
 			for (uint64_t i = 0; i < (it->second / blockSize); i++)
 			{
-				std::cout << markedSlot; FnTryNewLine();
+				std::cout << id << "id )" <<markedSlot; FnTryNewLine();
 			}
-			std::cout << sep; FnTryNewLine();
+			std::cout << id << "id )" <<sep; FnTryNewLine();
 
 			if (!(it->second + it->first == nextIt->first))
 			{
 				for (uint64_t i = 0; i < ((nextIt->first - (it->first + it->second)) / blockSize); i++)
 				{
-					std::cout << freeSlot; FnTryNewLine();
+					std::cout << id << "id )" <<freeSlot; FnTryNewLine();
 				}
-				std::cout << sep; FnTryNewLine();
+				std::cout << id << "id )" <<sep; FnTryNewLine();
 			}
-			std::cout << sep; FnTryNewLine();
+			std::cout << id << "id )" <<sep; FnTryNewLine();
 			it = nextIt;
 			nextIt++;
 		}
@@ -488,21 +331,21 @@ public:
 		{
 			for (uint64_t i = 0; i < (it->second / blockSize); i++)
 			{
-				std::cout << markedSlot; FnTryNewLine();
+				std::cout << id << "id )" <<markedSlot; FnTryNewLine();
 			}
-			std::cout << sep; FnTryNewLine();
+			std::cout << id << "id )" <<sep; FnTryNewLine();
 		}
-		std::cout << "]\n";
+		std::cout << id << "id )" <<"]\n";
 
 		if (true)
 		{
-			if (g_DebugPrint) std::cout << '\n';
+			if (g_DebugPrint) std::cout << id << "id )" <<'\n';
 
 			for (auto& [offset, size] : m_OffsetToSize)
 			{
 				if (g_DebugPrint) std::cout << std::format("O: {} --> S: {}\n", offset, size);
 			}
-			if (g_DebugPrint) std::cout << '\n';
+			if (g_DebugPrint) std::cout << id << "id )" <<'\n';
 			for (auto& [size, offsets] : m_SizeToOffsets)
 			{
 				if (g_DebugPrint) std::cout << std::format("S: {}\n", size);
@@ -561,15 +404,15 @@ public:
 			}
 			out += sep; FnTryNewLine();
 
-			if (!(it->second + it->first == nextIt->first))
+			if (blockSize > 0 && nextIt->first > (it->first + it->second))
 			{
-				for (uint64_t i = 0; i < ((nextIt->first - (it->first + it->second)) / blockSize); i++)
+				uint64_t free_diff = nextIt->first - (it->first + it->second);
+				for (uint64_t i = 0; i < (free_diff / blockSize); i++)
 				{
 					out += freeSlot; FnTryNewLine();
 				}
 				out += sep; FnTryNewLine();
 			}
-			out += sep; FnTryNewLine();
 			it = nextIt;
 			nextIt++;
 		}
@@ -616,6 +459,42 @@ public:
 		return m_OffsetToSize.size();
 	}
 
+
+	void for_each_memory_block(std::function<void(offset_t offset, size_t size, bool is_allocated)> for_each)
+	{
+		std::lock_guard lock(m_RecMtx);
+		auto it = m_OffsetToSize.begin();
+		if (it == m_OffsetToSize.end())
+			return;
+
+		if (it->first > 0)
+		{
+			for_each(0, it->first, false);
+		}
+
+		auto nextIt = std::next(it);
+
+		while (nextIt != m_OffsetToSize.end())
+		{
+			for_each(it->first, it->second, true);
+
+			offset_t current_end = it->first + it->second;
+			if (current_end < nextIt->first)
+			{
+				size_t gap_size = nextIt->first - current_end;
+				for_each(current_end, gap_size, false);
+			}
+
+			it = nextIt;
+			++nextIt;
+		}
+
+		if (it != m_OffsetToSize.end())
+		{
+			for_each(it->first, it->second, true);
+		}
+	}
+
 private:
 	const std::map<offset_t, size_t>& GetOffsetToSizeMap()
 	{
@@ -627,25 +506,14 @@ private:
 		return m_SizeToOffsets;
 	}
 
-	void SplitMemoryBlock(offset_t offset, size_t size, size_t desiredSize)
+	void SplitMemoryBlockAllocate(offset_t offset, size_t size, size_t desiredSize)
 	{
 		std::lock_guard lock(m_RecMtx);
 
-		RemoveMemoryBlock(offset, size);
-		AddMemoryBlock(offset, desiredSize);
-
+		AllocateAt(offset, size);
 		size_t remainingSize = size - desiredSize;
-		AddMemoryBlock(offset + desiredSize, remainingSize);
-	}
 
-	void SplitMemoryBlockAndPopDesired(offset_t offset, size_t size, size_t desiredSize)
-	{
-		std::lock_guard lock(m_RecMtx);
-
-		RemoveMemoryBlock(offset, size);
-
-		size_t remainingSize = size - desiredSize;
-		AddMemoryBlock(offset + desiredSize, remainingSize);
+		Insert(offset + desiredSize, remainingSize);
 	}
 
 

@@ -1,71 +1,49 @@
 #pragma once
+
+#include <atomic>
+#include <bit>
+#include <bitset>
+#include <condition_variable>
+#include <format>
+#include <mutex>
+#include <queue>
+#include <shared_mutex>
+#include <thread>
+#include <unordered_map>
+#include <stdio.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_access.hpp>
+#include <glm/gtx/vec_swizzle.hpp>
 
-typedef struct Renderer
+#include <FastNoise/FastNoise.h>
+#include <stb_image.h>
+
+#include "imgui.h"
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_opengl3.h"
+
+#include "camera.hpp"
+#include "buffer.hpp"
+#include "allocator.hpp"
+#include "shader.h"
+#include "utils.hpp"
+#include "thread_pool.hpp"
+#include "renderer.hpp"
+#include "input.hpp"
+
+struct Entity
 {
-    glm::ivec2 viewport;
-    glm::vec4 clear_color;
-    uint32_t framebuffer;
-    uint32_t screen_texture;
-    uint32_t depth_texture;
-} Renderer;
-
-
-void renderer_set_viewport(Renderer* renderer, glm::ivec2 new_viewport)
-{
-    renderer->viewport = new_viewport;
-}
-
-void renderer_set_clear_color(Renderer* renderer, glm::vec4 new_clear_color)
-{
-    renderer->clear_color = new_clear_color;
-}
-
-void renderer_create(Renderer* renderer)
-{
-    glCreateFramebuffers(1, &renderer->framebuffer);
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &renderer->screen_texture);
-    glCreateTextures(GL_TEXTURE_2D, 1, &renderer->depth_texture);
-
-    glTextureStorage2D(renderer->screen_texture, 1, GL_RGBA8, renderer->viewport.x, renderer->viewport.y);
-    glTextureStorage2D(renderer->depth_texture, 1, GL_DEPTH_COMPONENT32F, renderer->viewport.x, renderer->viewport.y);
-
-    glTextureParameteri(renderer->depth_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(renderer->depth_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(renderer->depth_texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(renderer->depth_texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glTextureParameteri(renderer->screen_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(renderer->screen_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(renderer->screen_texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(renderer->screen_texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glNamedFramebufferTexture(renderer->framebuffer, GL_COLOR_ATTACHMENT0, renderer->screen_texture, 0);
-    glNamedFramebufferTexture(renderer->framebuffer, GL_DEPTH_ATTACHMENT, renderer->depth_texture, 0);
-
-    if (glCheckNamedFramebufferStatus(renderer->framebuffer, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-    {
-        printf("error: framebuffer not complete!\n");
-    }
-
-}
+    glm::vec3 position;
+    glm::vec3 direction;
+    glm::vec3 velocity;
+};
 
 typedef int(*pfn_update)(void*);
-typedef int(*pfn_render)(Renderer*, void*);
+typedef int(*pfn_render)(void*);
 
-typedef struct Engine
-{
-    Renderer renderer;
-    bool is_running;
-    pfn_update pfn_update_frame;
-    pfn_render pfn_render_frame;
-    GLFWwindow* window;
-    void* user_data;
-    double delta_time;
-} Engine;
-
-void APIENTRY OpenGLDebugCallback(GLenum source,
+static void APIENTRY OpenGLDebugCallback(GLenum source,
     GLenum type,
     GLuint id,
     GLenum severity,
@@ -83,121 +61,156 @@ void APIENTRY OpenGLDebugCallback(GLenum source,
         __debugbreak();
 }
 
-int engine_init(Engine* engine,
-    pfn_update pfn_frame_update,
-    pfn_render pfn_frame_render,
-    void* user_data,
-    int width,
-    int height)
+class Engine
 {
-    engine->pfn_update_frame = pfn_frame_update;
-    engine->pfn_render_frame = pfn_frame_render;
-    engine->user_data = user_data;
-    engine->is_running = true;
+public:
+    Renderer renderer;
+    bool is_running;
+    pfn_update pfn_update_frame;
+    pfn_render pfn_render_frame;
+    pfn_render pfn_render_ui;
+    GLFWwindow* window;
+    void* user_data;
+    double delta_time;
 
-    if (!glfwInit())
-        return 1;
+    int init(
+        pfn_update pfn_frame_update,
+        pfn_render pfn_frame_render,
+        pfn_render pfn_frame_render_ui,
+        void* user_data,
+        int width,
+        int height)
+    {
+        this->pfn_update_frame = pfn_frame_update;
+        this->pfn_render_frame = pfn_frame_render;
+        this->pfn_render_ui = pfn_frame_render_ui;
+        this->user_data = user_data;
+        this->is_running = true;
 
-   
+        if (!glfwInit())
+            return 1;
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
 
-    // Create GLFW window
-    engine->window = glfwCreateWindow(width, height, "voxel engine", NULL, NULL);
-    if (!engine->window)
+        this->window = glfwCreateWindow(width, height, "voxel renderer", NULL, NULL);
+        if (!this->window)
+        {
+            glfwTerminate();
+            return 1;
+        }
+
+        glfwMakeContextCurrent(this->window);
+
+        if (!gladLoadGL(glfwGetProcAddress))
+        {
+            printf("Failed to initialize GLAD\n");
+            return 1;
+        }
+
+        if (GLAD_GL_VERSION_4_3)
+        {
+            glEnable(GL_DEBUG_OUTPUT);
+            glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+
+            glDebugMessageCallback(
+                OpenGLDebugCallback,
+                nullptr
+            );
+
+            glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE,
+                0, nullptr, GL_TRUE);
+        }
+
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+        ImGui::StyleColorsDark();
+        ImGui_ImplGlfw_InitForOpenGL(this->window, true);
+        ImGui_ImplOpenGL3_Init("#version 460 core");
+
+        renderer_set_viewport(&this->renderer, { width, height });
+        renderer_create(&this->renderer);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        glDepthFunc(GL_GREATER);
+        glClearDepth(0.f);
+        glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+
+        return 0;
+    }
+
+    int run()
+    {
+        double last_time = glfwGetTime();
+        while (is_running)
+        {
+            double current_time = glfwGetTime();
+            delta_time = current_time - last_time;
+
+            glfwPollEvents();
+
+            if (glfwWindowShouldClose(window)) {
+                is_running = false;
+                break;
+            }
+
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+
+            int result = pfn_update_frame(user_data);
+            if (result != 0)
+            {
+                is_running = false;
+                return result;
+            }
+
+            glBindFramebuffer(GL_FRAMEBUFFER, renderer.framebuffer);
+            glViewport(0, 0, renderer.viewport.x, renderer.viewport.y);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            result = pfn_render_frame(user_data);
+            if (result != 0)
+            {
+                is_running = false;
+                return result;
+            }
+            if (glfwWindowShouldClose(window))
+                break;
+
+            glBlitNamedFramebuffer(renderer.framebuffer, 0,
+                0, 0,
+                renderer.viewport.x, renderer.viewport.y,
+                0, 0,
+                renderer.viewport.x, renderer.viewport.y,
+                GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            result = pfn_render_ui(user_data);
+            if (result != 0)
+            {
+                is_running = false;
+                return result;
+            }
+
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+            glfwSwapBuffers(window);
+            last_time = current_time;
+        }
+        return 0;
+    }
+
+    void shutdown()
     {
         glfwTerminate();
-        return 1;
     }
-
-    glfwMakeContextCurrent(engine->window);
-
-    // Load OpenGL functions with GLAD
-    if (!gladLoadGL(glfwGetProcAddress))
-    {
-        printf("Failed to initialize GLAD\n");
-        return 1;
-    }
-
-    if (GLAD_GL_VERSION_4_3)
-    {
-        glEnable(GL_DEBUG_OUTPUT);
-        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-
-        glDebugMessageCallback(
-            OpenGLDebugCallback,
-            nullptr
-        );
-
-        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE,
-            0, nullptr, GL_TRUE);
-    }
-
-    renderer_set_viewport(&engine->renderer, { width, height });
-    renderer_create(&engine->renderer);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glDepthFunc(GL_GREATER);
-    glClearDepth(0.f);
-    glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
-
-    return 0;
-}
-
-int engine_run(Engine* engine)
-{
-    double last_time = glfwGetTime();
-    while (engine->is_running)
-    {
-        double current_time = glfwGetTime();
-        engine->delta_time = current_time - last_time;
-
-        glfwPollEvents();
-
-        if (glfwWindowShouldClose(engine->window)) {
-            engine->is_running = false;
-            break;
-        }
-
-        
-
-        int result = engine->pfn_update_frame(engine->user_data);
-        if (result != 0)
-        {
-            engine->is_running = false;
-            return result;
-        }
-
-        glBindFramebuffer(GL_FRAMEBUFFER, engine->renderer.framebuffer);
-        glViewport(0, 0, engine->renderer.viewport.x, engine->renderer.viewport.y);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        result = engine->pfn_render_frame(&engine->renderer, engine->user_data);
-        if (result != 0)
-        {
-            engine->is_running = false;
-            return result;
-        }
-        if (glfwWindowShouldClose(engine->window))
-            break;
-
-        glBlitNamedFramebuffer(engine->renderer.framebuffer, 0,
-            0, 0, 
-            engine->renderer.viewport.x, engine->renderer.viewport.y, 
-            0, 0, 
-            engine->renderer.viewport.x, engine->renderer.viewport.y, 
-            GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        glfwSwapBuffers(engine->window);
-        last_time = current_time;
-    }
-    return 0;
-}
-
-void engine_shutdown(Engine* engine)
-{
-    glfwTerminate();
-}
+};

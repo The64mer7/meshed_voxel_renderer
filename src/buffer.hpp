@@ -52,7 +52,7 @@ public:
 		totalBytes += size;
 		uint32_t totalExp = MemoryExponent(totalBytes);
 		float totalDisp = MemoryNormalized(totalBytes, totalExp);
-		std::cout << "Allocated: " << sizeDisp << units[sizeExp] << "\t\t\ttotal = " << totalDisp << units[totalExp] << "\n";
+		//std::cout << "Allocated: " << sizeDisp << units[sizeExp] << "\t\t\ttotal = " << totalDisp << units[totalExp] << "\n";
 
 		m_Size = size;
 	}
@@ -72,7 +72,7 @@ public:
 		totalBytes += size;
 		uint32_t totalExp = MemoryExponent(totalBytes);
 		float totalDisp = MemoryNormalized(totalBytes, totalExp);
-		std::cout << "Allocated: " << sizeDisp << units[sizeExp] << "\t\t\ttotal = " << totalDisp << units[totalExp] << "\n";
+		//std::cout << "Allocated: " << sizeDisp << units[sizeExp] << "\t\t\ttotal = " << totalDisp << units[totalExp] << "\n";
 
 		m_Size = size;
 	}
