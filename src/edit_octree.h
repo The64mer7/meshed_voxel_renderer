@@ -6,6 +6,8 @@
 #include <format>
 #include <iostream>
 
+#include "world_data.hpp"
+
 struct aabb3d
 {
 	glm::vec3 min;
@@ -304,17 +306,17 @@ public:
 			delete m_structures[i];
 	}
 
-	void for_each_leaf(std::function<void(packed_leaf3d_t)> fn_for_each)
+	void for_each_leaf(std::function<void(ChunkKey)> fn_for_each)
 	{
 		struct StackItem
 		{
-			packed_leaf3d_t leaf;
+			ChunkKey leaf;
 			OctreeNode* node;
 		};
 
 		std::stack<StackItem> stack;
 		StackItem root;
-		root.leaf.packed = glm::ivec4(0);
+		root.leaf.raw = glm::ivec4(0);
 		root.node = m_root;
 		stack.push(root);
 

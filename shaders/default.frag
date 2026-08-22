@@ -7,7 +7,7 @@ in flat uint draw_id;
 uniform uint u_render_cube;
 in flat vec3 vox_color;
 in flat uint vox_id;
-in flat ivec4 chunk_data;
+in flat ivec4 chunk_aabb;
 in flat uint material_id;
 
 uniform sampler2D u_texture_atlas;
@@ -64,7 +64,8 @@ void main()
 	if (normal.y < -0.9)     side_shading = 0.6;
 	float lambert =  max(0.1f, dot(normal, sun_dir));
 #if 1
-	vec2 triplanar = get_triplanar_uv(v_world_pos/4, normal);
+	float pixels_per_voxel = 16.f;
+	vec2 triplanar = get_triplanar_uv(pixels_per_voxel*v_world_pos * 62.f/64.f, normal);
 
 	triplanar = remap_texture(material_id, triplanar);
 	vec3 color = texture(u_texture_atlas, triplanar).rgb * mix(vec3(1.f), vec3(95,159,63)/200.f, float(material_id == 5));
@@ -76,5 +77,5 @@ void main()
 	FragColor = vec4(diffuse, 1);
 	if(u_render_cube == 1u)
 		FragColor = vec4(1,0,0,1);
-	//FragColor = mod(vec4(chunk_data), 2.f) / vec4(vec3(2), 2.f);
+	//FragColor = mod(vec4(chunk_aabb), 2.f) / vec4(vec3(2), 2.f);
 }

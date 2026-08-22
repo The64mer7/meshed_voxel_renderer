@@ -2,6 +2,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <glm/gtx/vec_swizzle.hpp>
+#include <omp.h>
+#include <glm/gtx/bit.hpp>
 
 #include "profiler.hpp"
 #include "utils.hpp"
@@ -15,32 +17,169 @@ struct ChunkMeshResult
     uint32_t shrinkwrap_aabb = 0;
 };
 
+enum FaceDirection
+{
+    PositiveX,
+    NegativeX,
+    PositiveY,
+    NegativeY,
+    PositiveZ,
+    NegativeZ
+};
+
+enum Axis
+{
+    X, Y, Z
+};
+
+inline uint32_t make_aabb(glm::ivec3 min, glm::ivec3 max)
+{
+    return
+        (min.x << 0) |
+        (min.y << 5) |
+        (min.z << 10) |
+        (max.x << 15) |
+        (max.y << 20) |
+        (max.z << 25);
+}
+
+inline uint32_t pack_face(uint32_t x, uint32_t y, uint32_t z, uint32_t dir, uint32_t material)
+{
+    return (x << 0) | (y << 6) | (z << 12) | (dir << 18) | (material << 21);
+}
+
+inline void unpack_face(uint32_t face, uint32_t* x, uint32_t* y, uint32_t* z, uint32_t* dir, uint32_t* material)
+{
+    *x = (face >> 0) & BITMASK(6);
+    *y = (face >> 6) & BITMASK(6);
+    *z = (face >> 12) & BITMASK(6);
+    *dir = (face >> 18) & BITMASK(3);
+    *material = (face >> 21) & BITMASK(11);
+}
+
+inline void emit_face_packed(uint32_t* out_buffer, uint64_t* offset, uint32_t x, uint32_t y, uint32_t z, uint32_t dir, uint32_t material)
+{
+    out_buffer[*offset] = pack_face(x, y, z, dir, material);
+    (*offset)++;
+}
+
 class ChunkMesher
 {
 public:
-	void create(const WorldData& world_data)
-	{
-		m_world_data = world_data;
+    using voxel_face_t = uint32_t;
 
-        size_t size_2d = glm::pow(world_data.voxels_per_chunk_axis + 2, 2u);
-        size_t size_3d = glm::pow(world_data.voxels_per_chunk_axis + 2, 3u);
-
-        m_height_map.resize(size_2d);
-        m_density_map.resize(size_3d);
-
-        m_solid_mask.resize(size_3d);
-        m_bit_mask.resize((size_3d + 31) / 32);
-	}
-    
-    ChunkMeshResult mesh_3d_packed(const ChunkKey& chunk_key, uint32_t* write_buffer)
+    inline static float s_get_height(int x, int z, int32_t stride, const float* height_map)
     {
-        glm::vec3 chunk_origin = m_world_data.chunk_origin(chunk_key);
-        float chunk_size = m_world_data.chunk_size(chunk_key.lod);
-        float voxel_size = m_world_data.voxel_size(chunk_key.lod);
+        x += 1; z += 1;
+        float h = height_map[x + stride * z];
+        return h;
+    }
+
+    inline static float s_get_density(int x, int y, int z, int32_t stride, int32_t stride_sq, const float* density_map)
+    {
+        x += 1; y += 1; z += 1;
+        float d = density_map[x + stride * y + stride * stride * z];
+        return d;
+    }
+
+    inline static uint32_t s_is_solid_get(int x, int y, int z, const uint32_t* solid_mask, const WorldData& world_data)
+    {
+        return solid_mask[x + (world_data.voxels_per_chunk_axis + 2) * y + (world_data.voxels_per_chunk_axis + 2) * (world_data.voxels_per_chunk_axis + 2) * z];
+    }
+
+    inline static void solid_set(uint32_t value, bool is_solid, int x, int y, int z, uint32_t stride, uint32_t stride_sq,
+        uint32_t* solid_mask,
+        uint32_t* bit_mask,
+        const WorldData& world_data)
+    {
+        x++; y++; z++;
+        solid_mask[x + (world_data.voxels_per_chunk_axis + 2) * y + (world_data.voxels_per_chunk_axis + 2) * (world_data.voxels_per_chunk_axis + 2) * z] = value;
+
+        uint32_t idx = x + y * stride + z * stride_sq;
+        uint32_t mask = 1u << x;
+        uint32_t idx32 = idx / (sizeof(uint32_t) * 8);
+        bit_mask[idx32] = (bit_mask[idx32] & ~mask) | (-int(is_solid) & mask);
+    }
+
+    template <FaceDirection face_dir>
+    inline static void mesh_dir_packed(float voxel_size, glm::vec3 chunk_origin, uint32_t* write_buffer, uint64_t* offset, const WorldData& world_data, const uint32_t* solid_mask)
+    {
+        constexpr int32_t dx = face_dir == PositiveX ? 1 : face_dir == NegativeX ? -1 : 0;
+        constexpr int32_t dy = face_dir == PositiveY ? 1 : face_dir == NegativeY ? -1 : 0;
+        constexpr int32_t dz = face_dir == PositiveZ ? 1 : face_dir == NegativeZ ? -1 : 0;
+
+        constexpr Axis axis = Axis(face_dir / 2);
+
+        if constexpr (axis == Axis::Z)
+        {
+            for (uint32_t z = 0; z < world_data.voxels_per_chunk_axis; z++)
+            {
+                //uint32_t face_mask[32] = { 0 };
+
+                for (uint32_t y = 0; y < world_data.voxels_per_chunk_axis; y++)
+                    for (uint32_t x = 0; x < world_data.voxels_per_chunk_axis; x++)
+                    {
+                        if (s_is_solid_get(x + 1, y + 1, z + 1, solid_mask, world_data) && s_is_solid_get(x + 1 + dx, y + 1 + dy, z + 1 + dz, solid_mask, world_data) == 0u)
+                        {
+                            //face_mask[y] |= (1u << x);
+                            emit_face_packed(write_buffer, offset, x, y, z, uint32_t(face_dir), s_is_solid_get(x + 1, y + 1, z + 1, solid_mask, world_data) & BITMASK(11));
+                        }
+                    }
+            }
+        }
+        else if constexpr (axis == Axis::Y)
+        {
+            for (uint32_t y = 0; y < world_data.voxels_per_chunk_axis; y++)
+            {
+                //uint32_t face_mask[32] = { 0 };
+
+                for (uint32_t z = 0; z < world_data.voxels_per_chunk_axis; z++)
+                    for (uint32_t x = 0; x < world_data.voxels_per_chunk_axis; x++)
+                    {
+                        if (s_is_solid_get(x + 1, y + 1, z + 1, solid_mask, world_data) && s_is_solid_get(x + 1 + dx, y + 1 + dy, z + 1 + dz, solid_mask, world_data) == 0u)
+                        {
+                            //face_mask[z] |= (1u << x);
+                            emit_face_packed(write_buffer, offset, x, y, z, uint32_t(face_dir), s_is_solid_get(x + 1, y + 1, z + 1, solid_mask, world_data) & BITMASK(11));
+                        }
+                    }
+            }
+        }
+        else if constexpr (axis == Axis::X)
+        {
+            for (uint32_t x = 0; x < world_data.voxels_per_chunk_axis; x++)
+            {
+                //uint32_t face_mask[32] = { 0 };
+                
+                for (uint32_t z = 0; z < world_data.voxels_per_chunk_axis; z++)
+                    for (uint32_t y = 0; y < world_data.voxels_per_chunk_axis; y++)
+                    {
+                        if (s_is_solid_get(x + 1, y + 1, z + 1, solid_mask, world_data) && s_is_solid_get(x + 1 + dx, y + 1 + dy, z + 1 + dz, solid_mask, world_data) == 0u)
+                        {
+                            //face_mask[z] |= (1u << y);
+                            emit_face_packed(write_buffer, offset, x, y, z, uint32_t(face_dir), s_is_solid_get(x + 1, y + 1, z + 1, solid_mask, world_data) & BITMASK(11));
+                        }
+                    }
+            }
+        }
+    }
+
+    static ChunkMeshResult mesh_3d_packed(
+        const ChunkKey& chunk_key,
+        uint32_t* write_buffer,
+        WorldData& world_data,
+        float* height_map,
+        float* density_map,
+        uint32_t* solid_mask,
+        uint32_t* bit_mask
+    )
+    {
+        glm::vec3 chunk_origin = world_data.chunk_origin(chunk_key);
+        float chunk_size = world_data.chunk_size(chunk_key.lod);
+        float voxel_size = world_data.voxel_size(chunk_key.lod);
 
         ChunkMeshResult result;
 
-        auto bounds_2d = TerrainNoise::generate_2d(m_height_map.data(), glm::xz(chunk_origin), m_world_data.voxels_per_chunk_axis, voxel_size);
+        auto bounds_2d = TerrainNoise::generate_2d(height_map, glm::xz(chunk_origin), world_data.voxels_per_chunk_axis, voxel_size);
 
         float max_height = bounds_2d.max;
         float min_height = bounds_2d.min;
@@ -50,28 +189,27 @@ public:
         if (chunk_bot > max_height)
             return result;
 
-        auto bounds_3d = TerrainNoise::generate_3d(m_density_map.data(), chunk_origin, m_world_data.voxels_per_chunk_axis, voxel_size);
-        
+        auto bounds_3d = TerrainNoise::generate_3d(density_map, chunk_origin, world_data.voxels_per_chunk_axis, voxel_size);
+
         if (bounds_3d.max <= 0.f || chunk_top < min_height && bounds_3d.min > 0.f)
             return result;
 
-        uint64_t stride = 2 + m_world_data.voxels_per_chunk_axis;
+        uint64_t stride = 2 + world_data.voxels_per_chunk_axis;
         uint64_t stride_sq = glm::pow(stride, 2);
 
         glm::ivec3 aabb_min(stride - 1);
         glm::ivec3 aabb_max(0);
 
-        for (int32_t z = -1; z < m_world_data.voxels_per_chunk_axis + 1; z++)
+        for (int32_t z = -1; z < world_data.voxels_per_chunk_axis + 1; z++)
         {
-            for (int32_t y = -1; y < m_world_data.voxels_per_chunk_axis + 1; y++)
+            for (int32_t y = -1; y < world_data.voxels_per_chunk_axis + 1; y++)
             {
-                for (int32_t x = -1; x < m_world_data.voxels_per_chunk_axis + 1; x++)
+                for (int32_t x = -1; x < world_data.voxels_per_chunk_axis + 1; x++)
                 {
                     glm::vec3 voxel_origin = chunk_origin + glm::vec3(x, y, z) * voxel_size;
-                    float d = get_density(x, y, z, stride, stride_sq);
-                    float h = get_height(x, z, stride);
+                    float d = s_get_density(x, y, z, stride, stride_sq, density_map);
+                    float h = s_get_height(x, z, stride, height_map);
                     bool is_solid = (voxel_origin.y <= h && d > 0.f);
-
 
                     //TODO: make it modular
                     uint32_t material = 5;
@@ -85,12 +223,12 @@ public:
                         material = 0;
                     }
 
-                    solid_set(material, is_solid, x, y, z, stride, stride_sq);
+                    solid_set(material, is_solid, x, y, z, stride, stride_sq, solid_mask, bit_mask, world_data);
 
                     if (is_solid &&
-                        x != -1 && x != m_world_data.voxels_per_chunk_axis &&
-                        y != -1 && y != m_world_data.voxels_per_chunk_axis &&
-                        z != -1 && z != m_world_data.voxels_per_chunk_axis)
+                        x != -1 && x != world_data.voxels_per_chunk_axis &&
+                        y != -1 && y != world_data.voxels_per_chunk_axis &&
+                        z != -1 && z != world_data.voxels_per_chunk_axis)
                     {
                         aabb_min.x = glm::min(aabb_min.x, x);
                         aabb_min.y = glm::min(aabb_min.y, y);
@@ -105,210 +243,424 @@ public:
 
         result.shrinkwrap_aabb = make_aabb(aabb_min, aabb_max);
         uint64_t write_idx = 0;
-        mesh_dir_packed<PositiveX>(voxel_size, chunk_origin, write_buffer, &write_idx);
-        mesh_dir_packed<NegativeX>(voxel_size, chunk_origin, write_buffer, &write_idx);
+        mesh_dir_packed<PositiveX>(voxel_size, chunk_origin, write_buffer, &write_idx, world_data, solid_mask);
+        mesh_dir_packed<NegativeX>(voxel_size, chunk_origin, write_buffer, &write_idx, world_data, solid_mask);
 
-        mesh_dir_packed<PositiveY>(voxel_size, chunk_origin, write_buffer, &write_idx);
-        mesh_dir_packed<NegativeY>(voxel_size, chunk_origin, write_buffer, &write_idx);
+        mesh_dir_packed<PositiveY>(voxel_size, chunk_origin, write_buffer, &write_idx, world_data, solid_mask);
+        mesh_dir_packed<NegativeY>(voxel_size, chunk_origin, write_buffer, &write_idx, world_data, solid_mask);
 
-        mesh_dir_packed<PositiveZ>(voxel_size, chunk_origin, write_buffer, &write_idx);
-        mesh_dir_packed<NegativeZ>(voxel_size, chunk_origin, write_buffer, &write_idx);
+        mesh_dir_packed<PositiveZ>(voxel_size, chunk_origin, write_buffer, &write_idx, world_data, solid_mask);
+        mesh_dir_packed<NegativeZ>(voxel_size, chunk_origin, write_buffer, &write_idx, world_data, solid_mask);
 
         result.face_count = write_idx;
-    }
-    using voxel_face_t = uint32_t;
-private:
-    std::vector<float> m_height_map;
-    
-    std::vector<float> m_density_map;
-    std::vector<uint32_t> m_solid_mask;
-    std::vector<uint32_t> m_bit_mask;
 
-    WorldData m_world_data;
-
-    inline float get_height(int x, int z, int32_t stride) // -1 to VOXELS_PER_AXIS
-    {
-        x += 1; z += 1;
-        float h = m_height_map[x + stride * z];
-        return h;
-
-    }
-
-    inline float get_density(int x, int y, int z, int32_t stride, int32_t stride_sq) // -1 to VOXELS_PER_AXIS
-    {
-        x += 1; y += 1; z += 1;
-        float d = m_density_map[x + stride * y + stride * stride * z];
-        return d;
-    }
-
-    enum FaceDirection
-    {
-        PositiveX,
-        NegativeX,
-        PositiveY,
-        NegativeY,
-        PositiveZ,
-        NegativeZ,
-    };
-
-    enum Axis
-    {
-        X, Y, Z
-    };
-
-    void update_aabb_packed(uint32_t* aabb, int x, int y, int z)
-    {
-        uint32_t bitmask = BITMASK(5);
-        for (int offset = 0; offset < 15; offset += 5)
-        {
-            int coord = (*aabb) & bitmask;
-            coord = glm::min(coord >> offset, x);
-            *aabb &= ~bitmask;
-            *aabb |= coord << offset;
-
-            bitmask <<= 5;
-        }
-        for (int offset = 15; offset < 30; offset += 5)
-        {
-            int coord = (*aabb) & bitmask;
-            coord = glm::max(coord >> offset, x);
-            *aabb &= ~bitmask;
-            *aabb |= coord << offset;
-
-            bitmask <<= 5;
-        }
-    }
-
-    inline uint32_t make_aabb(glm::ivec3 min, glm::ivec3 max)
-    {
-        return
-            (min.x << 0) |
-            (min.y << 5) |
-            (min.z << 10) |
-            (max.x << 15) |
-            (max.y << 20) |
-            (max.z << 25);
-    }
-    PROFILER_DECLARE(structures_query);
-
-
-    inline uint32_t is_solid_get(int x, int y, int z)
-    {
-        return m_solid_mask[x + (m_world_data.voxels_per_chunk_axis + 2) * y + (m_world_data.voxels_per_chunk_axis + 2) * (m_world_data.voxels_per_chunk_axis + 2) * z];
-    }
-
-    inline void solid_set(uint32_t value, bool is_solid, int x, int y, int z, uint32_t stride, uint32_t stride_sq)
-    {
-        x++; y++; z++;
-        m_solid_mask[x + (m_world_data.voxels_per_chunk_axis + 2) * y + (m_world_data.voxels_per_chunk_axis + 2) * (m_world_data.voxels_per_chunk_axis + 2) * z] = value;
-
-        uint32_t idx = x + y * stride + z * stride_sq;
-        uint32_t mask = 1u << x;
-        uint32_t idx32 = idx / (sizeof(uint32_t) * 8);
-        m_bit_mask[idx32] = (m_bit_mask[idx32] & ~mask) | (-int(is_solid) & mask);
-    }
-
-
-    /**
-     * @brief Packs voxel face data into a single 32-bit integer.
-     *
-     * This function encodes the voxel coordinates (x, y, z),
-     * the face direction, and material into one uint32_t.
-     *
-     * @param x        X coordinate of the voxel (0-63)
-     * @param y        Y coordinate of the voxel (0-63)
-     * @param z        Z coordinate of the voxel (0-63)
-     * @param dir      Face direction (0-5)
-     * @param material Material or color ID (0-2047)
-     * @return uint32_t Packed representation of the face
-     */
-    voxel_face_t pack_face(uint32_t x, uint32_t y, uint32_t z, uint32_t dir, uint32_t material)
-    {
-        //assert(x <= BITMASK(6));
-        //assert(y <= BITMASK(6));
-        //assert(z <= BITMASK(6));
-        //assert(dir <= BITMASK(3));
-        //assert(material <= BITMASK(11));
-        return (x << 0) | (y << 6) | (z << 12) | (dir << 18) | (material << 21);
-    }
-    /**
-    * @brief Inverse operation of PackFace
-    *
-    * @param must be non null
-    * @return Unpacked representation of the face
-    */
-    void unpack_face(voxel_face_t face, uint32_t* x, uint32_t* y, uint32_t* z, uint32_t* dir, uint32_t* material)
-    {
-        *x = (face >> 0) & BITMASK(6);
-        *y = (face >> 6) & BITMASK(6);
-        *z = (face >> 12) & BITMASK(6);
-        *dir = (face >> 18) & BITMASK(3);
-        *material = (face >> 21) & BITMASK(11);
-    }
-
-    inline void emit_face_packed(uint32_t* out_buffer, uint64_t* offset, uint32_t x, uint32_t y, uint32_t z, uint32_t dir, uint32_t material)
-    {
-        out_buffer[*offset] = pack_face(x, y, z, dir, material);
-        (*offset)++;
-    }
-
-    template<FaceDirection face_dir>
-    inline void mesh_dir_packed(float voxel_size, glm::vec3 chunk_origin, uint32_t* write_buffer, uint64_t* offset)
-    {
-        constexpr int32_t dx = face_dir == PositiveX ? 1 : face_dir == NegativeX ? -1 : 0;
-        constexpr int32_t dy = face_dir == PositiveY ? 1 : face_dir == NegativeY ? -1 : 0;
-        constexpr int32_t dz = face_dir == PositiveZ ? 1 : face_dir == NegativeZ ? -1 : 0;
-
-        constexpr Axis axis = Axis(face_dir / 2);
-
-        if constexpr (axis == Axis::Z)
-        {
-            for (uint32_t z = 0; z < m_world_data.voxels_per_chunk_axis; z++)
-            {
-                uint32_t face_mask[32] = { 0 };
-                for (uint32_t y = 0; y < m_world_data.voxels_per_chunk_axis; y++)
-                    for (uint32_t x = 0; x < m_world_data.voxels_per_chunk_axis; x++)
-                    {
-                        if (is_solid_get(x + 1, y + 1, z + 1) && is_solid_get(x + 1 + dx, y + 1 + dy, z + 1 + dz) == 0u)
-                        {
-                            face_mask[y] |= (1u << x);
-                            emit_face_packed(write_buffer, offset, x, y, z, uint32_t(face_dir), is_solid_get(x + 1, y + 1, z + 1) & BITMASK(11));
-                        }
-                    }
-            }
-        }
-        else if constexpr (axis == Axis::Y)
-        {
-            for (uint32_t y = 0; y < m_world_data.voxels_per_chunk_axis; y++)
-            {
-                uint32_t face_mask[32] = { 0 };
-                for (uint32_t z = 0; z < m_world_data.voxels_per_chunk_axis; z++)
-                    for (uint32_t x = 0; x < m_world_data.voxels_per_chunk_axis; x++)
-                    {
-                        if (is_solid_get(x + 1, y + 1, z + 1) && is_solid_get(x + 1 + dx, y + 1 + dy, z + 1 + dz) == 0u)
-                        {
-                            face_mask[z] |= (1u << x);
-                            emit_face_packed(write_buffer, offset, x, y, z, uint32_t(face_dir), is_solid_get(x + 1, y + 1, z + 1) & BITMASK(11));
-                        }
-                    }
-            }
-        }
-        else if constexpr (axis == Axis::X)
-        {
-            for (uint32_t x = 0; x < m_world_data.voxels_per_chunk_axis; x++)
-            {
-                uint32_t face_mask[32] = { 0 };
-                for (uint32_t z = 0; z < m_world_data.voxels_per_chunk_axis; z++)
-                    for (uint32_t y = 0; y < m_world_data.voxels_per_chunk_axis; y++)
-                    {
-                        if (is_solid_get(x + 1, y + 1, z + 1) && is_solid_get(x + 1 + dx, y + 1 + dy, z + 1 + dz) == 0u)
-                        {
-                            face_mask[z] |= (1u << y);
-                            emit_face_packed(write_buffer, offset, x, y, z, uint32_t(face_dir), is_solid_get(x + 1, y + 1, z + 1) & BITMASK(11));
-                        }
-                    }
-            }
-        }
-
+        return result;
     }
 };
+
+struct GreedyFace
+{
+    uint64_t packed;
+
+    void pack(uint32_t x, uint32_t y, uint32_t z, uint32_t width, uint32_t height, uint32_t dir, uint32_t custom)
+    {
+        packed =
+            (static_cast<uint64_t>(x & BITMASK(6))              << 0) |
+            (static_cast<uint64_t>(y & BITMASK(6))              << 6) |
+            (static_cast<uint64_t>(z & BITMASK(6))              << 12) |
+            (static_cast<uint64_t>((width - 1) & BITMASK(6))    << 18) |
+            (static_cast<uint64_t>((height - 1) & BITMASK(6))   << 24) |
+            (static_cast<uint64_t>(dir & BITMASK(3))            << 30) |
+            (static_cast<uint64_t>(custom & BITMASK(31))        << 33);
+    };
+
+    void unpack(uint32_t* x, uint32_t* y, uint32_t* z, uint32_t* width, uint32_t* height, uint32_t* dir, uint32_t* custom)
+    {
+        *x =        static_cast<uint32_t>(packed >> 0) & BITMASK(6);
+        *y =        static_cast<uint32_t>(packed >> 6) & BITMASK(6);
+        *z =        static_cast<uint32_t>(packed >> 12) & BITMASK(6);
+        *width =    (static_cast<uint32_t>(packed >> 18) & BITMASK(6)) + 1;
+        *height =   (static_cast<uint32_t>(packed >> 24) & BITMASK(6)) + 1;
+        *dir =      static_cast<uint32_t>(packed >> 30) & BITMASK(3);
+        *custom =   static_cast<uint32_t>(packed >> 33) & BITMASK(31);
+    }
+};
+
+struct ChunkGreedyMesherResult
+{
+    uint64_t face_count;
+};
+struct VoxelCoord
+{
+    int x, y, z;
+};
+struct VoxelData
+{
+
+    float height_map[64][64];
+    float density_map[64][64][64];
+    uint16_t material_map[64][64][64];
+    uint64_t solid_mask[64][64];
+    union
+    {
+        uint64_t face_mask_3d[64][64];
+        uint64_t face_mask[64];
+    };
+
+    uint16_t calculate_material(uint32_t x, uint32_t y, uint32_t z, glm::vec3 chunk_origin, float voxel_size)
+    {
+        glm::vec3 voxel_origin = chunk_origin + glm::vec3(x-1, y-1, z-1) * voxel_size;
+        float d = 1; density_map[z][y][x];
+        float h = height_map[z][x];
+        bool is_solid = (voxel_origin.y <= h && d > 0.f);
+        
+        uint16_t material = is_solid ? 3 : 0;
+        return material;
+
+    }
+
+    bool compute_terrain(const ChunkKey& key, const WorldData& world_data)
+    {
+        float voxel_size = world_data.voxel_size(key.lod);
+        float chunk_size = world_data.chunk_size(key.lod);
+        int voxels_per_chunk_axis = world_data.voxels_per_chunk_axis;
+        glm::vec3 chunk_origin = world_data.chunk_origin(key);
+
+        auto bounds_2d = TerrainNoise::generate_2d(&height_map[0][0], glm::xz(chunk_origin), voxels_per_chunk_axis, voxel_size);
+
+        float max_height = bounds_2d.max;
+        float min_height = bounds_2d.min;
+        float chunk_top = chunk_origin.y + chunk_size;
+        float chunk_bot = chunk_origin.y;
+
+        if (chunk_bot > max_height || chunk_top < min_height)
+            return false;
+
+        //auto bounds_3d = TerrainNoise::generate_3d(&density_map[0][0][0], chunk_origin, world_data.voxels_per_chunk_axis, voxel_size);
+        //
+        //if (bounds_3d.max <= 0.f || chunk_top < min_height && bounds_3d.min > 0.f)
+        //    return false;
+
+        glm::ivec3 aabb_min(world_data.voxels_per_chunk_axis);
+        glm::ivec3 aabb_max(0);
+
+        for (int z = 0; z < voxels_per_chunk_axis + 2; z++)
+            for (int y = 0; y < voxels_per_chunk_axis + 2; y++)
+            {
+                solid_mask[z][y] = 0;
+                for (int x = 0; x < voxels_per_chunk_axis + 2; x++)
+                {
+                    uint16_t material = calculate_material(x, y, z, chunk_origin, voxel_size);
+                    
+                    bool is_solid = material != 0;
+                    if (is_solid &&
+                        x > 0 && x <= world_data.voxels_per_chunk_axis &&
+                        y > 0 && y <= world_data.voxels_per_chunk_axis &&
+                        z > 0 && z <= world_data.voxels_per_chunk_axis)
+                    {
+                        aabb_min.x = glm::min(aabb_min.x, x - 1);
+                        aabb_min.y = glm::min(aabb_min.y, y - 1);
+                        aabb_min.z = glm::min(aabb_min.z, z - 1);
+                        aabb_max.x = glm::max(aabb_max.x, x - 1);
+                        aabb_max.y = glm::max(aabb_max.y, y - 1);
+                        aabb_max.z = glm::max(aabb_max.z, z - 1);
+                    }
+                    
+                    material_map[z][y][x] = material;
+                    solid_mask[z][y] |= (material != 0) ? (1ull << x) : 0;
+                }
+            }
+
+        return true;
+    }
+
+    //uint32_t to_index(uint32_t x, uint32_t y, uint32_t z) const
+    //{
+    //    return x + y * 64 + z * 64 * 64;
+    //}
+    //
+    //void to_coords(uint32_t i, uint32_t* x, uint32_t* y, uint32_t* z) const
+    //{
+    //    *x = i % 64;
+    //    *y = (i / 64) % 64;
+    //    *z = (i / 64 / 64) % 64;
+    //}
+
+    // Fills face_mask slice at pos with data, if dir uses axis X, then face_mask_3d is populated and param pos is unused
+    void compute_face_mask(FaceDirection dir, int pos, int voxels_per_chunk_axis)
+    {
+        Axis axis = Axis(dir / 2);
+
+        if (axis == Axis::Z)
+        {
+            int z = pos;
+            int32_t dz = dir == PositiveZ ? 1 : dir == NegativeZ ? -1 : 0;
+            for (int y = 0; y < 64; y++)
+            {
+                face_mask[y] = solid_mask[z][y] & (~solid_mask[z + dz][y]); // YX
+            }
+        }
+        else if (axis == Axis::Y)
+        {
+            int y = pos;
+            int32_t dy = dir == PositiveY ? 1 : dir == NegativeY ? -1 : 0;
+            for (int z = 0; z < voxels_per_chunk_axis + 2; z++)
+            {
+                face_mask[z] = solid_mask[z][y] & (~solid_mask[z][y + dy]); // ZX
+            }
+        }
+        else if (axis == Axis::X)
+        {
+            int32_t dx = dir == PositiveX ? 1 : (dir == NegativeX ? -1 : 0);
+            if (dx == 1)
+            {
+                for (int z = 0; z < voxels_per_chunk_axis + 2; z++)
+                {
+                    for (int y = 0; y < voxels_per_chunk_axis + 2; y++)
+                    {
+                        uint64_t row = solid_mask[z][y];
+                        face_mask_3d[z][y] = row & ~static_cast<uint64_t>(row >> 1); // ZYX
+                    }
+                }
+            }
+            else
+            {
+                for (int z = 0; z < voxels_per_chunk_axis + 2; z++)
+                {
+                    for (int y = 0; y < voxels_per_chunk_axis + 2; y++)
+                    {
+                        uint64_t row = solid_mask[z][y];
+                        face_mask_3d[z][y] = row & ~static_cast<uint64_t>(row << 1); // ZYX
+                    }
+                }
+            }
+        }
+    }
+
+    VoxelCoord tbn_to_coord(int t, int b, int n, FaceDirection dir)
+    {
+        switch (dir)
+        {
+        case PositiveX:
+        case NegativeX:
+        {
+            return { n,t,b };
+        }
+        case PositiveY:
+        case NegativeY:
+        {
+            return { t,n,b };
+        }
+        case PositiveZ:
+        case NegativeZ:
+        {
+            return { t,b,n };
+        }
+        default:
+            return { 0,0,0 };
+        }
+        return { 0,0,0 };
+    }
+
+    uint64_t& get_face_mask(uint64_t n, uint64_t b, FaceDirection dir)
+    {
+        if (dir == PositiveX || dir == NegativeX)
+            return face_mask_3d[b][n];
+        return face_mask[b];
+    }
+
+    uint16_t get_material(int x, int y, int z)
+    {
+        return material_map[z][y][x];
+    }
+
+    inline uint16_t get_material_tbn(int t, int b, int n, FaceDirection dir)
+    {
+        VoxelCoord c = tbn_to_coord(t, b, n, dir);
+        return material_map[c.z][c.y][c.x];
+    }
+
+    uint16_t get_material(const VoxelCoord& coord)
+    {
+        return material_map[coord.z][coord.y][coord.x];
+    }
+
+    inline void mesh_slice(FaceDirection dir, int n, int voxels_per_chunk_axis, GreedyFace* out_buffer, ChunkGreedyMesherResult& result)
+    {
+        // z == b : X
+        for (int b = 1; b <= voxels_per_chunk_axis; b++)
+        {
+            uint64_t& row = get_face_mask(n, b, dir);
+            row = row & ~((1ull) | (1ull << 63)); // clear 0th and last bit (since its neighbor chunk data)
+
+            while (row)
+            {
+                //y == t : X
+                int t0 = glm::findLSB(row); // 1 to 62 can only be returned (or -1)
+
+                if (t0 == -1)
+                    break;
+
+                int t = t0;
+                uint16_t material = get_material_tbn(t, b, n, dir);
+
+                while (t <= voxels_per_chunk_axis && get_material_tbn(t, b, n, dir) == material && (row & (1ull << t)) != 0)
+                    t++;
+                // b <= 62 -> w <= 62
+
+                int w = t - t0;
+
+                if (!(w <= voxels_per_chunk_axis)) exit(1);
+                if (!(t0 <= voxels_per_chunk_axis)) exit(1);
+                uint64_t strip_mask = BITMASK(w) << t0;
+
+                int b1 = b + 1;
+
+                while (b1 <= voxels_per_chunk_axis)
+                {
+                    uint64_t& next_row = get_face_mask(n, b1, dir);
+                    next_row = next_row & ~((1ull) | (1ull << 63));
+
+                    bool is_same_solid = strip_mask == (strip_mask & next_row); // check if neighbor row contains same adjacent solid voxels
+                    if (!is_same_solid)
+                        break;
+
+                    bool all_equal = true;
+                    for (int ti = t0; ti < t; ti++) // check if their material is same
+                    {
+                        if (get_material_tbn(ti, b1, n, dir) != material)
+                        {
+                            all_equal = false;
+                            break;
+                        }
+                    }
+                    if (!all_equal)
+                        break;
+
+                    b1++; // merge the face strip
+                    next_row &= ~strip_mask; // erase the row since we merged the face
+                }
+
+
+                int h = b1 - b;
+
+                GreedyFace face;
+                VoxelCoord c = tbn_to_coord(t0 - 1, b - 1, n - 1, dir);
+
+                if (dir == PositiveY or dir == NegativeY)
+                    face.pack(c.x, c.y, c.z, h, w, dir, material);
+                else
+                    face.pack(c.x, c.y, c.z, w, h, dir, material);
+                out_buffer[result.face_count++] = face;
+
+                row &= (~0ull << t);
+            }
+        }
+    }
+};
+
+static ChunkGreedyMesherResult mesh_greedy(VoxelData* data, GreedyFace* out_buffer, int voxels_per_chunk_axis)
+{
+    ChunkGreedyMesherResult result;
+    result.face_count = 0;
+
+    
+
+    data->compute_face_mask(PositiveX, -1, voxels_per_chunk_axis);
+    for (int i = 1; i <= voxels_per_chunk_axis; i++)
+        transpose_matrix(data->face_mask_3d[i]); // ZYX to ZXY order
+
+    for (int x = 1; x <= voxels_per_chunk_axis; x++)
+        data->mesh_slice(PositiveX, x, voxels_per_chunk_axis, out_buffer, result);
+
+    data->compute_face_mask(NegativeX, -1, voxels_per_chunk_axis);
+    for (int i = 1; i <= voxels_per_chunk_axis; i++)
+        transpose_matrix(data->face_mask_3d[i]); // ZYX to ZXY order
+
+    for (int x = 1; x <= voxels_per_chunk_axis; x++)
+        data->mesh_slice(NegativeX, x, voxels_per_chunk_axis, out_buffer, result);
+
+    for (int i = 1; i <= voxels_per_chunk_axis; i++)
+    {
+        data->compute_face_mask(PositiveZ, i, voxels_per_chunk_axis);
+        data->mesh_slice(PositiveZ, i, voxels_per_chunk_axis, out_buffer, result);
+        data->compute_face_mask(NegativeZ, i, voxels_per_chunk_axis);
+        data->mesh_slice(NegativeZ, i, voxels_per_chunk_axis, out_buffer, result);
+
+        data->compute_face_mask(PositiveY, i, voxels_per_chunk_axis);
+        data->mesh_slice(PositiveY, i, voxels_per_chunk_axis, out_buffer, result);
+        data->compute_face_mask(NegativeY, i, voxels_per_chunk_axis);
+        data->mesh_slice(NegativeY, i, voxels_per_chunk_axis, out_buffer, result);
+    }
+
+    return result;
+}
+
+/*
+auto mesh_slice = [&](FaceDirection dir, int x)
+        {
+            for (int z = 1; z <= voxels_per_chunk_axis; z++)
+            {
+                uint64_t& row = data->get_face_mask(x, z, dir);
+                row = row & ~((1ull) | (1ull << 63)); // clear 0th and last bit (since its neighbor chunk data)
+
+                while (row)
+                {
+                    int y0 = glm::findLSB(row); // 1 to 62 can only be returned (or -1)
+
+                    if (y0 == -1)
+                        break;
+
+                    int y = y0;
+                    uint16_t material = data->material_map[z][y][x];
+
+                    while (y <= voxels_per_chunk_axis && data->material_map[z][y][x] == material && (row & (1ull << y)) != 0)
+                        y++;
+                    // b <= 62 -> w <= 62
+
+                    int w = y - y0;
+
+                    if (!(w <= voxels_per_chunk_axis)) exit(1);
+                    if (!(y0 <= voxels_per_chunk_axis)) exit(1);
+                    uint64_t strip_mask = BITMASK(w) << y0;
+
+                    int z1 = z + 1;
+
+                    while (z1 <= voxels_per_chunk_axis)
+                    {
+                        uint64_t& next_row = data->get_face_mask(x, z1, dir);
+                        next_row = next_row & ~((1ull) | (1ull << 63));
+
+                        bool is_same_solid = strip_mask == (strip_mask & next_row); // check if neighbor row contains same adjacent solid voxels
+                        if (!is_same_solid)
+                            break;
+
+                        bool all_equal = true;
+                        for (int yi = y0; yi < y; yi++) // check if their material is same
+                        {
+                            if (data->material_map[z1][yi][x] != material)
+                            {
+                                all_equal = false;
+                                break;
+                            }
+                        }
+                        if (!all_equal)
+                            break;
+
+                        z1++; // merge the face strip
+                        next_row &= ~strip_mask; // erase the row since we merged the face
+                    }
+
+
+                    int h = z1 - z;
+
+                    GreedyFace face;
+                    face.pack(x - 1, y0 - 1, z - 1, w, h, dir, material);
+                    out_buffer[result.face_count++] = face;
+
+                    row &= (~0ull << y);
+                }
+            }
+        };
+
+*/

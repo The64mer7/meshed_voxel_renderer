@@ -37,7 +37,7 @@ public:
         finalTerrain = FastNoise::New<FastNoise::Add>();
         megaTerrainNode = FastNoise::New<FastNoise::Perlin>();
         zeroNode->SetValue(0.f);
-        ampNode->SetValue(512.f);
+        ampNode->SetValue(8*512.f);
         biasNode->SetValue(1024.f);
         terrainAmpNode->SetValue(32.f);
     
@@ -99,10 +99,10 @@ public:
 
     static auto generate_2d(float* height_map, glm::vec2 origin, int voxels_per_chunk_axis, float voxel_size)
     {
-        glm::vec2 noise = origin * frequency;
+        glm::vec2 noise = (origin - voxel_size) * frequency;
         return finalTerrain->GenUniformGrid2D(
             height_map,
-            origin.x * frequency, origin.y * frequency,
+            noise.x, noise.y,
             voxels_per_chunk_axis + 2, voxels_per_chunk_axis + 2,
             voxel_size * frequency, voxel_size * frequency,
             seed
@@ -114,7 +114,7 @@ public:
         glm::vec3 noise = origin * frequency;
         return finalTerrain->GenUniformGrid3D(
             density_map,
-            origin.x * frequency, origin.y * frequency, origin.z * frequency,
+            noise.x, noise.y, noise.z,
             voxels_per_chunk_axis + 2, voxels_per_chunk_axis + 2, voxels_per_chunk_axis + 2,
             voxel_size * frequency, voxel_size * frequency, voxel_size * frequency,
             seed

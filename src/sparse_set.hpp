@@ -42,6 +42,16 @@ public:
 		return &m_values[it->second];
 	}
 
+	const Value* get(const Key& key) const
+	{
+		auto it = m_to_index.find(key);
+
+		if (it == m_to_index.end())
+			return nullptr;
+
+		return &m_values[it->second];
+	}
+
 	bool remove(const Key& key)
 	{
 		auto it = m_to_index.find(key);

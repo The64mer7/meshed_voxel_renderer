@@ -5,17 +5,21 @@ ThreadPool::~ThreadPool()
 	shutdown();
 }
 
-void ThreadPool::init(uint64_t thread_count)
+void ThreadPool::init(uint64_t thread_count, uint64_t allocator_initial_capacity)
 {
 	shutdown();
 
 	m_is_running = true;
 
 	for (uint64_t i = 0; i < thread_count; i++)
-		m_workers.emplace_back(worker_exec, this);
+	{
+		m_workers.emplace_back(worker_exec, this, i);
+		m_allocators.emplace_back();
+		m_allocators[i].init(allocator_initial_capacity);
+	}
 }
 
-void ThreadPool::submit(std::function<void()> cmd)
+void ThreadPool::submit(std::function<void(ArenaAllocator* allocator)> cmd)
 {
 	{
 		std::lock_guard lock(m_cmd_mtx);
@@ -46,7 +50,12 @@ void ThreadPool::shutdown()
 	m_workers.clear();
 }
 
-void ThreadPool::worker_exec(ThreadPool* tp)
+size_t ThreadPool::get_worker_count()
+{
+	return m_workers.size();
+}
+
+void ThreadPool::worker_exec(ThreadPool* tp, uint64_t id)
 {
 	while (true)
 	{
@@ -65,7 +74,9 @@ void ThreadPool::worker_exec(ThreadPool* tp)
 		auto cmd = std::move(tp->m_cmds.front());
 		tp->m_cmds.pop();
 		lock.unlock();
+		ArenaAllocator* allocator = &tp->m_allocators[id];
 
-		cmd();
+		allocator->reset();
+		cmd(allocator);
 	}
 }

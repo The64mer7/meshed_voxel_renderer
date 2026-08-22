@@ -7,8 +7,6 @@
 #include <stack>
 #include <condition_variable>
 
-
-
 template<typename T>
 class ThreadSafeQueue
 {

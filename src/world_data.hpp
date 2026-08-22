@@ -1,23 +1,52 @@
 #pragma once
 #include <glm/glm.hpp>
 
+#include "thread_pool.hpp"
+
+typedef glm::ivec4 ChunkKeyRaw;
+typedef glm::ivec3 ChunkCoord;
 struct ChunkKey
 {
 	union
 	{
-		glm::ivec4 vec;
+		ChunkKeyRaw raw;
+		glm::ivec4 raw_vec;
 		glm::ivec3 coord;
 		struct
 		{
 			int x, y, z, lod;
 		};
 	};
-
+	ChunkKey() = default;
 	ChunkKey(int x, int y, int z, int lod)
 		: x(x), y(y), z(z), lod(lod) {}
 	ChunkKey(glm::ivec4 v)
-		: vec(v) {}
+		: raw(v) {}
+
+	bool operator<(const ChunkKey& rhs) const
+	{
+		if (x != rhs.x) return x < rhs.x;
+		if (y != rhs.y) return y < rhs.y;
+		if (z != rhs.z) return z < rhs.z;
+		return lod < rhs.lod;
+	}
 };
+
+inline bool operator==(const ChunkKey& lhs, const ChunkKey& rhs) {
+	return lhs.raw == rhs.raw;
+}
+
+namespace std
+{
+	template <>
+	struct hash<ChunkKey>
+	{
+		std::size_t operator()(const ChunkKey& key) const noexcept
+		{
+			return std::hash<glm::ivec4>{}(key.raw_vec);
+		}
+	};
+}
 
 struct WorldData
 {
@@ -45,4 +74,5 @@ struct WorldData
 	int voxels_per_chunk_axis;
 	float update_distance;
 	size_t world_vram;
+	ThreadPool* thread_pool;
 };

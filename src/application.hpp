@@ -17,7 +17,9 @@ public:
     Engine engine;
     ThreadPool thread_pool;
     InputState input;
+    
     World world;
+    OctreeClipmapGenerateSettings clipmap_settings;
 
     Entity player;
     FirstPersonCamera camera;
@@ -29,6 +31,12 @@ public:
     uint32_t dummy_vao;
 
     uint64_t frame_index = 0;
+
+    struct DisplaySettings
+    {
+        bool chunk_aabb = false;
+    } display_settings;
+
 private:
 
     void handle_input();

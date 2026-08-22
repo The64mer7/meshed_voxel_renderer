@@ -15,6 +15,12 @@ static float MemoryNormalized(uint64_t size, uint32_t exp)
 	return size / glm::pow(1024.f, float(exp));
 }
 
+struct GpuBufferMapping
+{
+	void* buffer;
+	size_t offset;
+	size_t size;
+};
 
 class GpuBuffer
 {
@@ -104,6 +110,19 @@ public:
 	uint64_t SizeInBytes()
 	{
 		return m_Size;
+	}
+	GpuBufferMapping Map()
+	{
+		GpuBufferMapping map;
+		map.buffer = glMapNamedBufferRange(m_Handle, 0, m_Size, GL_MAP_WRITE_BIT | GL_MAP_COHERENT_BIT | GL_MAP_PERSISTENT_BIT);
+		map.offset = 0;
+		map.size = m_Size;
+
+		return map;
+	}
+	void Unmap()
+	{
+		glUnmapNamedBuffer(m_Handle);
 	}
 	~GpuBuffer()
 	{

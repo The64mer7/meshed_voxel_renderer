@@ -11,20 +11,8 @@ Application::~Application()
 void Application::init()
 {
     engine.init(update_trampoline, render_trampoline, render_ui_trampoline, this, width, height);
-    thread_pool.init(std::thread::hardware_concurrency());
+    thread_pool.init(std::thread::hardware_concurrency(), MB(1));
     glfwSwapInterval(0);
-
-    {
-        FirstPersonCameraSettings camera_settings;
-        camera_settings.position = { 0,0,0 };
-        camera_settings.direction = { 0,0,-1 };
-        camera_settings.nearPlane = 64*4096;
-        camera_settings.farPlane = 0.125f;
-        camera_settings.fov = 45.f;
-        camera_settings.width = width;
-        camera_settings.height = height;
-        camera.Init(camera_settings);
-    }
 
     player.position = glm::vec3(0);
     player.direction = glm::vec3(0);
@@ -50,20 +38,32 @@ void Application::init()
     }
 
     WorldData world_data;
-    world_data.update_distance = 16.f;
-    world_data.voxels_per_chunk_axis = 16;
+    world_data.update_distance = 2.f;
+    world_data.voxels_per_chunk_axis = 62;
     world_data.world_size_exp = 23;
     world_data.world_vram = GB(2);
+    world_data.thread_pool = &thread_pool;
 
 
-    OctreeClipmapGenerateSettings clipmap_settings;
     clipmap_settings.radius = 0;
-    clipmap_settings.further_radius = 1024;
+    clipmap_settings.further_radius = 1024*64;
     clipmap_settings.min_depth = 4;
-    clipmap_settings.max_depth = 19;
-    clipmap_settings.chunks_per_lod = 6;
+    clipmap_settings.max_depth = 21;
+    clipmap_settings.chunks_per_lod = 3;
 
     world.create(world_data, clipmap_settings);
+
+    {
+        FirstPersonCameraSettings camera_settings;
+        camera_settings.position = { 0,0,0 };
+        camera_settings.direction = { 0,0,-1 };
+        camera_settings.nearPlane = world_data.world_size() * 2;
+        camera_settings.farPlane = 0.125f;
+        camera_settings.fov = 45.f;
+        camera_settings.width = width;
+        camera_settings.height = height;
+        camera.Init(camera_settings);
+    }
 }
 
 void Application::run()
@@ -112,7 +112,8 @@ void Application::handle_input()
     }
 
     float sensitivity = 0.01f;
-    camera.Rotate(sensitivity * input.get_mouse_dx(), -sensitivity * input.get_mouse_dy());
+    if (input.get_button(GLFW_MOUSE_BUTTON_RIGHT))
+        camera.Rotate(sensitivity * input.get_mouse_dx(), -sensitivity * input.get_mouse_dy());
 
     if (glm::any(glm::greaterThanEqual(glm::abs(camera.GetPosition()), glm::vec3(camera_chunk_size))))
     {
@@ -159,6 +160,33 @@ int Application::frame_render_ui()
     if (display_metrics)
     {
         ImGui::Text("chunks_allocated: %u", world.get_chunks_allocated());
+
+        glm::vec3 cam_rel = camera.GetPosition();
+        glm::vec3 cam_world = cam_rel + glm::vec3(camera_chunk_coord) * camera_chunk_size;
+        ImGui::Text("dt: %fms", 1000 * engine.delta_time);
+        ImGui::Text("camera_position: [%f, %f, %f]", cam_world.x, cam_world.y, cam_world.z);
+        ImGui::Text("camera_relative_position: [%f, %f, %f]", cam_rel.x, cam_rel.y, cam_rel.z);
+        ImGui::Text("camera_chunk_coord: [%u, %u, %u]", camera_chunk_coord.x, camera_chunk_coord.y, camera_chunk_coord.z);
+        ImGui::Text("camera_speed: %f u/s", camera_speed);
+        ImGui::Separator();
+
+        int chunks_per_lod = clipmap_settings.chunks_per_lod;
+        int min_depth = clipmap_settings.min_depth;
+        int max_depth = clipmap_settings.max_depth;
+        bool update = false;
+        update = update || ImGui::SliderInt("chunks_per_lod",      &chunks_per_lod,   0, 8);
+        update = update || ImGui::SliderInt("min_depth",         &min_depth,        0, clipmap_settings.max_depth);
+        update = update || ImGui::SliderInt("max_depth",         &max_depth,        0, 25);
+        update = update || ImGui::SliderFloat("further_radius",    &clipmap_settings.further_radius,   0, 1024*1024);
+        update = update || ImGui::SliderFloat("radius",            &clipmap_settings.radius,           0, clipmap_settings.further_radius);
+        clipmap_settings.chunks_per_lod = chunks_per_lod;
+        clipmap_settings.min_depth = min_depth;
+        clipmap_settings.max_depth = max_depth;
+        
+        ImGui::Text("average_chunk_meshing_time %fms", float(g_generator_time_sum / g_generator_count));
+
+        if (update)
+            world.update_settings(clipmap_settings);
     }
 
     ImGui::End();

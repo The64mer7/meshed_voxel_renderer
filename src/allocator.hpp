@@ -33,6 +33,11 @@ static std::string VectorToName(glm::ivec3 key, char sep)
 	return std::to_string(key.x) + sep + std::to_string(key.y) + sep + std::to_string(key.z);
 }
 
+static std::string VectorToName(glm::ivec4 key, char sep)
+{
+	return std::to_string(key.x) + sep + std::to_string(key.y) + sep + std::to_string(key.z) + sep + std::to_string(key.w);
+}
+
 using namespace std::chrono_literals;
 inline static bool g_DebugPrint = true;
 
