@@ -124,18 +124,18 @@ public:
 		static std::atomic_uint64_t id_gen = 0;
 		this->id = id_gen++;
 	}
-	size_t GetMaxSize()
+	size_t get_max_size()
 	{
 		std::lock_guard lock(m_RecMtx);
 		return m_MaxSize;
 	}
 
-	void Init(size_t size)
+	void create(size_t size)
 	{
 		m_MaxSize = size;
 	}
 
-	bool Allocate(size_t desiredSize, offset_t& outOffset)
+	bool alloc(size_t desiredSize, offset_t& outOffset)
 	{
 		std::lock_guard lock(m_RecMtx);
 
@@ -148,11 +148,11 @@ public:
 
 		outOffset = *itSize->second.begin();
 
-		SplitMemoryBlockAllocate(outOffset, storedSize, desiredSize);
+		split_memory_blocks(outOffset, storedSize, desiredSize);
 		return true;
 	}
 
-	bool FindOffset(size_t desiredSize)
+	bool can_alloc(size_t desiredSize)
 	{
 		std::lock_guard lock(m_RecMtx);
 
@@ -164,14 +164,14 @@ public:
 		return true;
 	}
 
-	void Clear()
+	void free_all()
 	{
 		std::lock_guard lock(m_RecMtx);
 		m_OffsetToSize.clear();
 		m_SizeToOffsets.clear();
 	}
 
-	void Defragment()
+	void defrag_free_list()
 	{
 		std::lock_guard lock(m_RecMtx);
 		auto it = m_OffsetToSize.begin();
@@ -200,7 +200,7 @@ public:
 		}
 	}
 
-	void Insert(offset_t offset, size_t size)
+	void free(offset_t offset, size_t size)
 	{
 		std::lock_guard lock(m_RecMtx);
 
@@ -223,7 +223,7 @@ public:
 				{
 					offset = prev_offset;
 					size += prev_size;
-					AllocateAt(prev_offset, prev_size);
+					alloc_at(prev_offset, prev_size);
 					merged = true;
 				}
 			}
@@ -243,7 +243,7 @@ public:
 				break;
 			
 			size += next_size;
-			AllocateAt(next_offset, next_size);
+			alloc_at(next_offset, next_size);
 		}
 
 		assert(!m_OffsetToSize.contains(offset));
@@ -255,7 +255,7 @@ public:
 		m_OffsetToSize[offset] = size;
 	}
 
-	void AllocateAt(offset_t offset, size_t size)
+	void alloc_at(offset_t offset, size_t size)
 	{
 		std::lock_guard lock(m_RecMtx);
 
@@ -271,7 +271,7 @@ public:
 		m_OffsetToSize.erase(offset);
 	}
 
-	uint64_t GetBlocksSize()
+	uint64_t get_blocks_size()
 	{
 		uint64_t total = 0;
 		for (const auto& [offset, size] : m_OffsetToSize)
@@ -279,7 +279,7 @@ public:
 		return total;
 	}
 
-	void DebugPrint(uint64_t blockSize = KB(4))
+	void debug_print(uint64_t blockSize = KB(4))
 	{
 		std::lock_guard lock(m_RecMtx);
 		std::cout << id << "id )" <<"MEM: [\n";
@@ -359,14 +359,14 @@ public:
 			}
 		}
 
-		uint64_t totalBlocksSize = GetBlocksSize();
-		double ratio = totalBlocksSize / double(GetMaxSize());
+		uint64_t totalBlocksSize = get_blocks_size();
+		double ratio = totalBlocksSize / double(get_max_size());
 		std::cout << std::format("marked: {} ({})\n", totalBlocksSize, ratio);
-		std::cout << std::format("unmarked: {} ({})\n", GetMaxSize() - totalBlocksSize, 1.0 - ratio);
+		std::cout << std::format("unmarked: {} ({})\n", get_max_size() - totalBlocksSize, 1.0 - ratio);
 
 	}
 
-	void DebugLog(std::string& out, uint64_t blockSize)
+	void debug_log(std::string& out, uint64_t blockSize)
 	{
 		out.clear();
 		std::lock_guard lock(m_RecMtx);
@@ -458,7 +458,7 @@ public:
 		}
 	}
 
-	uint64_t BlocksCount()
+	uint64_t block_count()
 	{
 		std::lock_guard lock(m_RecMtx);
 		return m_OffsetToSize.size();
@@ -501,24 +501,24 @@ public:
 	}
 
 private:
-	const std::map<offset_t, size_t>& GetOffsetToSizeMap()
+	const std::map<offset_t, size_t>& get_offsets_to_size_map()
 	{
 		return m_OffsetToSize;
 	}
 
-	const std::map<size_t, Offsets>& GetSizeToOffsetsMap()
+	const std::map<size_t, Offsets>& get_size_to_offsets_map()
 	{
 		return m_SizeToOffsets;
 	}
 
-	void SplitMemoryBlockAllocate(offset_t offset, size_t size, size_t desiredSize)
+	void split_memory_blocks(offset_t offset, size_t size, size_t desiredSize)
 	{
 		std::lock_guard lock(m_RecMtx);
 
-		AllocateAt(offset, size);
+		alloc_at(offset, size);
 		size_t remainingSize = size - desiredSize;
 
-		Insert(offset + desiredSize, remainingSize);
+		free(offset + desiredSize, remainingSize);
 	}
 
 

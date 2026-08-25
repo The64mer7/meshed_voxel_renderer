@@ -30,6 +30,16 @@ struct ChunkKey
 		if (z != rhs.z) return z < rhs.z;
 		return lod < rhs.lod;
 	}
+
+	inline ChunkKey get_octree_child(int cx, int cy, int cz)
+	{
+		ChunkKey child;
+		child.lod = lod + 1;
+		child.x = (x << 1) | cx;
+		child.y = (y << 1) | cy;
+		child.z = (z << 1) | cz;
+		return child;
+	}
 };
 
 inline bool operator==(const ChunkKey& lhs, const ChunkKey& rhs) {

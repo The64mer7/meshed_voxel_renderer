@@ -6,6 +6,12 @@ class TreeNode
 public:
     T value;
     TreeNode<N, T>* children[N];
+    
+    TreeNode(const TreeNode&) = delete;
+    TreeNode& operator=(const TreeNode&) = delete;
+    TreeNode(TreeNode&&) = delete;
+    TreeNode& operator=(TreeNode&&) = delete;
+
     size_t get_child_count()
     {
         return N;

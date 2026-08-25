@@ -3,15 +3,12 @@
 Application::Application(int width, int height)
     : width(width), height(height) {}
 
-Application::~Application()
-{
-    cleanup();
-}
+Application::~Application() {}
 
 void Application::init()
 {
     engine.init(update_trampoline, render_trampoline, render_ui_trampoline, this, width, height);
-    thread_pool.init(std::thread::hardware_concurrency(), MB(1));
+    thread_pool.init(std::thread::hardware_concurrency(), MB(4));
     glfwSwapInterval(0);
 
     player.position = glm::vec3(0);
@@ -48,13 +45,12 @@ void Application::init()
     clipmap_settings.radius = 0;
     clipmap_settings.further_radius = 1024*64;
     clipmap_settings.min_depth = 4;
-    clipmap_settings.max_depth = 21;
+    clipmap_settings.max_depth = 19;
     clipmap_settings.chunks_per_lod = 3;
 
     world.create(world_data, clipmap_settings);
 
     {
-        FirstPersonCameraSettings camera_settings;
         camera_settings.position = { 0,0,0 };
         camera_settings.direction = { 0,0,-1 };
         camera_settings.nearPlane = world_data.world_size() * 2;
@@ -75,6 +71,11 @@ void Application::cleanup()
 {
     thread_pool.shutdown();
     engine.shutdown();
+}
+
+glm::vec3 Application::camera_world_pos() const
+{
+    return glm::vec3(camera_chunk_coord) * camera_chunk_size + camera.GetPosition();
 }
 
 void Application::handle_input()
@@ -112,8 +113,52 @@ void Application::handle_input()
     }
 
     float sensitivity = 0.01f;
-    if (input.get_button(GLFW_MOUSE_BUTTON_RIGHT))
-        camera.Rotate(sensitivity * input.get_mouse_dx(), -sensitivity * input.get_mouse_dy());
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.WantCaptureMouse)
+    {
+        if (input.get_button(GLFW_MOUSE_BUTTON_RIGHT))
+            camera.Rotate(sensitivity * input.get_mouse_dx(), -sensitivity * input.get_mouse_dy());
+        if (input.is_button_clicked(GLFW_MOUSE_BUTTON_LEFT))
+        {
+            float depth = 0.0f;
+
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, engine.renderer.framebuffer);
+
+            double xmouse, ymouse;
+            glfwGetCursorPos(engine.window, &xmouse, &ymouse);
+            glReadPixels(
+                glm::min(static_cast<int>(xmouse), engine.renderer.viewport.x),
+                glm::min(engine.renderer.viewport.y - static_cast<int>(ymouse), engine.renderer.viewport.y),
+                1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
+            float x_ndc = (2.0f * xmouse) / engine.renderer.viewport.x - 1.0f;
+            float y_ndc = 1.f - (2.0f * ymouse) / engine.renderer.viewport.y;
+
+            glm::vec4 ray_clip = glm::vec4(x_ndc, y_ndc, 1.0f, 1.0f);
+
+            glm::vec4 ray_view = glm::inverse(camera.GetProjectionMatrix()) * ray_clip;
+            ray_view = glm::vec4(ray_view.x, ray_view.y, -1.0f, 0.0f);
+
+            glm::vec3 ray_world = glm::vec3(glm::inverse(camera.GetViewMatrix()) * ray_view);
+            ray_world = glm::normalize(ray_world);
+
+            float n = world.get_data().world_size() * 4.0f;
+            float f = 0.125f;
+
+            float distance = (n * f) / (depth * (n - f) + f);
+
+
+            SphereStructure* structure = new SphereStructure();
+            structure->radius = sphere_radius;
+
+            structure->position = camera_world_pos() + ray_world * distance;
+
+
+
+            structure_id handle = world.create_structure(structure);
+            world.place_structure(handle);
+        }
+    }
 
     if (glm::any(glm::greaterThanEqual(glm::abs(camera.GetPosition()), glm::vec3(camera_chunk_size))))
     {
@@ -151,7 +196,7 @@ int Application::frame_render_ui()
     if (display_allocator)
     {
         std::string string = "";
-        world.get_memory_allocator().DebugLog(string, MB(4));
+        world.get_memory_allocator().debug_log(string, MB(4));
         ImGui::TextWrapped(string.c_str());
     }
 
@@ -160,7 +205,8 @@ int Application::frame_render_ui()
     if (display_metrics)
     {
         ImGui::Text("chunks_allocated: %u", world.get_chunks_allocated());
-
+        ImGui::Text("nodes_created: %u", world.get_tree_node_size());
+        ImGui::SliderFloat("sphere_radius: %f", &sphere_radius, 1.f, 1024 * 1024);
         glm::vec3 cam_rel = camera.GetPosition();
         glm::vec3 cam_world = cam_rel + glm::vec3(camera_chunk_coord) * camera_chunk_size;
         ImGui::Text("dt: %fms", 1000 * engine.delta_time);
@@ -170,23 +216,34 @@ int Application::frame_render_ui()
         ImGui::Text("camera_speed: %f u/s", camera_speed);
         ImGui::Separator();
 
-        int chunks_per_lod = clipmap_settings.chunks_per_lod;
-        int min_depth = clipmap_settings.min_depth;
-        int max_depth = clipmap_settings.max_depth;
-        bool update = false;
-        update = update || ImGui::SliderInt("chunks_per_lod",      &chunks_per_lod,   0, 8);
-        update = update || ImGui::SliderInt("min_depth",         &min_depth,        0, clipmap_settings.max_depth);
-        update = update || ImGui::SliderInt("max_depth",         &max_depth,        0, 25);
-        update = update || ImGui::SliderFloat("further_radius",    &clipmap_settings.further_radius,   0, 1024*1024);
-        update = update || ImGui::SliderFloat("radius",            &clipmap_settings.radius,           0, clipmap_settings.further_radius);
-        clipmap_settings.chunks_per_lod = chunks_per_lod;
-        clipmap_settings.min_depth = min_depth;
-        clipmap_settings.max_depth = max_depth;
+        {
+            int chunks_per_lod = clipmap_settings.chunks_per_lod;
+            int min_depth = clipmap_settings.min_depth;
+            int max_depth = clipmap_settings.max_depth;
+            bool update = false;
+            update = update || ImGui::SliderInt("chunks_per_lod", &chunks_per_lod, 0, 8);
+            update = update || ImGui::SliderInt("min_depth", &min_depth, 0, clipmap_settings.max_depth);
+            update = update || ImGui::SliderInt("max_depth", &max_depth, 0, 25);
+            update = update || ImGui::SliderFloat("further_radius", &clipmap_settings.further_radius, 0, 1024 * 1024);
+            update = update || ImGui::SliderFloat("radius", &clipmap_settings.radius, 0, clipmap_settings.further_radius);
+            clipmap_settings.chunks_per_lod = chunks_per_lod;
+            clipmap_settings.min_depth = min_depth;
+            clipmap_settings.max_depth = max_depth;
+            ImGui::Text("average_chunk_meshing_time %fms", float(g_generator_time_sum / g_generator_count));
+            if (update)
+                world.update_settings(clipmap_settings);
+        }
+        ImGui::Separator();
+        ImGui::Text("tasks_remaining: %u", thread_pool.get_task_count());
         
-        ImGui::Text("average_chunk_meshing_time %fms", float(g_generator_time_sum / g_generator_count));
+        world.debug_ui();
 
-        if (update)
-            world.update_settings(clipmap_settings);
+        bool naive = g_mesh_naive._Storage._Value;
+        if (ImGui::Button(naive ? "set greedy" : "set naive", ImVec2{64,24}))
+        {
+            g_mesh_naive.store(!naive);
+            world.regenerate_chunks(camera.GetPosition() + glm::vec3(camera_chunk_coord) * camera_chunk_size);
+        }
     }
 
     ImGui::End();

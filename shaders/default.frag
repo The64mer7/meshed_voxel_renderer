@@ -37,7 +37,7 @@ vec2 remap_texture(uint id, vec2 uv)
 	ivec2 size = textureSize(u_texture_atlas, 0);
 	ivec2 blocks = size / 16;
 	vec2 iuv = 16.f * uv;
-	
+	id--;
 	iuv.x += float(id % blocks.x) * 16.f;
 	iuv.y += float(blocks.y - id / blocks.x - 1) * 16.f;
 

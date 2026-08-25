@@ -58,6 +58,21 @@ public:
 			-settings.farPlane, settings.farPlane);
 	}
 
+	void SetProjection(float farPlane, float nearPlane, float fov, float width, float height)
+	{
+		float aspect = width / height;
+		m_ProjectionMatrix = glm::perspectiveZO(fov, aspect, nearPlane, farPlane);
+
+		float ortho_height = 20.f;
+		float ortho_width = aspect * ortho_height;
+		m_OrthoProjectionMatrix = glm::ortho(
+			-ortho_width,
+			ortho_width,
+			-ortho_height,
+			ortho_height,
+			-farPlane, farPlane);
+	}
+
 	void Translate(glm::vec3 v)
 	{
 		m_Position += v;

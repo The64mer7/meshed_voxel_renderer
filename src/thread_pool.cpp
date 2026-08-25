@@ -55,6 +55,12 @@ size_t ThreadPool::get_worker_count()
 	return m_workers.size();
 }
 
+size_t ThreadPool::get_task_count()
+{
+	return m_cmds.size();
+}
+
+
 void ThreadPool::worker_exec(ThreadPool* tp, uint64_t id)
 {
 	while (true)

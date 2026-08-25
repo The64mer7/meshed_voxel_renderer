@@ -10,6 +10,7 @@
 #include <set>
 
 #include "world_data.hpp"
+#include "edit_octree.h"
 
 static bool intersect_sphere_aabb3d(
     float sX, float sY, float sZ, float radius,
@@ -69,8 +70,71 @@ public:
 
     std::vector<FlatOctreeNode> nodes;
 
-    float px = 0.f, py = 0.f, pz = 0.f, s = 1024.f;
+    float origin_x = 0.f, origin_y = 0.f, origin_z = 0.f, world_scale = 0.f;
     
+    void regenerate(const aabb3d& bounds)
+    {
+        m_leaves_created.clear();
+        m_leaves_removed.clear();
+
+        struct StackItem
+        {
+            uint64_t index;
+            aabb3d bounds;
+            ChunkKey key;
+        };
+        aabb3d root_bounds;
+        root_bounds.min = { origin_x, origin_y, origin_z };
+        root_bounds.max = root_bounds.min + world_scale;
+
+        StackItem root = { 0, root_bounds, glm::ivec4(0) };
+        
+        std::stack<StackItem> stack;
+        stack.push(root);
+
+        while (!stack.empty())
+        {
+            StackItem item = stack.top();
+            stack.pop();
+            if (item.index == invalid_id || item.index >= nodes.size())
+                continue;
+
+            if (!item.bounds.intersects(bounds))
+                continue;
+
+            FlatOctreeNode& node = nodes[item.index];
+
+            if (node.is_leaf)
+            {
+                m_leaves_created.push_back(item.key);
+                m_leaves_removed.push_back(item.key);
+            }
+            else
+            {
+                for (int i = 0; i < 8; i++)
+                {
+                    int x = i % 2;
+                    int y = (i / 2) % 2;
+                    int z = (i / 4) % 2;
+
+                    uint64_t child_index = node.children[i];
+
+                    if (child_index == invalid_id)
+                        continue;
+
+                    ChunkKey child_key = item.key.get_octree_child(x, y, z);
+
+                    StackItem child_item;
+                    child_item.index = child_index;
+                    child_item.key = child_key;
+                    child_item.bounds = item.bounds.octree_child(i);
+
+                    stack.push(child_item);
+                }
+            }
+        }
+    }
+
     void generate_by_chunks(const OctreeClipmapGenerateSettings& settings, const glm::vec3& position)
     {
         generate(
@@ -84,15 +148,12 @@ public:
             settings.further_radius * glm::pow(0.5f, settings.chunks_per_lod)
         );
     }
+
     void generate(uint32_t min_depth, uint32_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, float intensity)
     {
         nodes.clear();
 
-        m_prev_leaves = std::move(m_curr_leaves);
-        m_curr_leaves.clear();
-
         m_leaves_prev = std::move(m_leaves_curr);
-        m_leaves_curr.clear();
 
         struct StackItem
         {
@@ -103,7 +164,7 @@ public:
             float depth;
         };
         std::stack<StackItem> stack;
-        StackItem root_item = { invalid_id, 0, glm::ivec4(0), px, py, pz, s, 0};
+        StackItem root_item = { invalid_id, 0, glm::ivec4(0), origin_x, origin_y, origin_z, world_scale, 0};
         stack.push(root_item);
 
         while (!stack.empty())
@@ -116,7 +177,6 @@ public:
 
             if (parent.depth >= max_depth)
             {
-                m_curr_leaves.insert(parent.leaf_data.raw);
                 m_leaves_curr.push_back(parent.leaf_data.raw);
                 continue;
             }
@@ -144,7 +204,6 @@ public:
 
                         if (!further && !closer && parent.depth >= min_depth)
                         {
-                            m_curr_leaves.insert(leaf.raw);
                             m_leaves_curr.push_back(leaf.raw);
                             continue;
                         }
@@ -185,7 +244,6 @@ public:
                         }
                         else
                         {
-                            m_curr_leaves.insert(leaf.raw);
                             m_leaves_curr.push_back(leaf.raw);
                         }
                     }
@@ -212,7 +270,7 @@ public:
         };
 
         std::stack<StackItem> stack;
-        stack.push({ 0, px, py, pz, s, glm::ivec4(0) });
+        stack.push({ 0, origin_x, origin_y, origin_z, world_scale, glm::ivec4(0) });
         int drawCount = 0;
         ChunkKey root_leaf;
         root_leaf.raw = glm::ivec4(0);
@@ -255,13 +313,15 @@ public:
         return drawCount;
     }
 
-    //void for_each_chunk_created(std::function<void(ChunkKey)> fn_for_each)
-    //{
-    //    for (ChunkKey leaf : m_leaves_created)
-    //        fn_for_each(leaf);
-    //}
+    template <typename Func>
+    void for_each_chunk_created(Func&& fn_for_each)
+    {
+        for (ChunkKey leaf : m_leaves_created)
+            fn_for_each(leaf);
+    }
 
-    void for_each_chunk_created(std::function<void(ChunkKey)> fn_for_each, LeavesVector::iterator& it, int iteration_count)
+    template <typename Func>
+    void for_each_chunk_created(Func&& fn_for_each, LeavesVector::iterator& it, int iteration_count)
     {
         while (it != m_leaves_created.end() && iteration_count > 0)
         {
@@ -272,13 +332,15 @@ public:
         }
     }
 
-    void for_each_chunk(std::function<void(ChunkKey)> fn_for_each)
+    template <typename Func>
+    void for_each_chunk(Func&& fn_for_each)
     {
         for (ChunkKey leaf : m_leaves_curr)
             fn_for_each(leaf);
     }
 
-    void for_each_chunk_removed(std::function<void(ChunkKey)> fn_for_each)
+    template <typename Func>
+    void for_each_chunk_removed(Func&& fn_for_each)
     {
         for (ChunkKey leaf : m_leaves_removed)
         {
@@ -334,8 +396,5 @@ private:
 
     LeavesVector m_leaves_curr;
     LeavesVector m_leaves_prev;
-
-    LeavesSet m_curr_leaves;
-    LeavesSet m_prev_leaves;
 
 };

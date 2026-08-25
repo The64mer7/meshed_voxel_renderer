@@ -19,6 +19,7 @@ public:
 	void shutdown();
 
 	size_t get_worker_count();
+	size_t get_task_count();
 
 private:
 	static void worker_exec(ThreadPool* tp, uint64_t id);

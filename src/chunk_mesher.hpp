@@ -10,6 +10,7 @@
 #include "edit_octree.h"
 #include "terrain_noise.hpp"
 #include "world_data.hpp"
+#include "edit_octree.h"
 
 struct ChunkMeshResult
 {
@@ -314,12 +315,40 @@ struct VoxelData
         float h = height_map[z][x];
         bool is_solid = (voxel_origin.y <= h && d > 0.f);
         
-        uint16_t material = is_solid ? 3 : 0;
+        uint16_t material = 0;
+        if (is_solid)
+        {
+
+            if (voxel_origin.y > 1024.f)
+                material = 1;
+            else
+            {
+                material = 1+uint16_t(voxel_origin.x + voxel_origin.y + voxel_origin.z) % 7;
+            }
+            if (voxel_origin.y > 3000)
+                material = 0;
+        }
+        
         return material;
 
     }
 
-    bool compute_terrain(const ChunkKey& key, const WorldData& world_data)
+    uint16_t get_structure_material(WorldEdits* edits, const std::vector<structure_id>* structures, glm::vec3 voxel_origin, float voxel_size)
+    {
+        for (int i = structures->size() - 1; i >= 0; i--)
+        {
+            structure_id id = (*structures)[i];
+            OctreeStructure* structure = edits->get_structure(id);
+            uint16_t material = structure->get_voxel(voxel_origin, voxel_size);
+            
+            if (material)
+                return material;
+        }
+
+        return 0;
+    }
+
+    bool compute_terrain(const ChunkKey& key, const WorldData& world_data, WorldEdits* edits)
     {
         float voxel_size = world_data.voxel_size(key.lod);
         float chunk_size = world_data.chunk_size(key.lod);
@@ -333,8 +362,14 @@ struct VoxelData
         float chunk_top = chunk_origin.y + chunk_size;
         float chunk_bot = chunk_origin.y;
 
-        if (chunk_bot > max_height || chunk_top < min_height)
+        aabb3d aabb;
+        aabb.min = world_data.chunk_origin(key);
+        aabb.max = aabb.min + world_data.chunk_size(key.lod);
+        auto structures = edits->find_structures_in_region(aabb);
+        
+        if (structures->size() == 0 && (chunk_bot > max_height || chunk_top < min_height))
             return false;
+
 
         //auto bounds_3d = TerrainNoise::generate_3d(&density_map[0][0][0], chunk_origin, world_data.voxels_per_chunk_axis, voxel_size);
         //
@@ -343,16 +378,26 @@ struct VoxelData
 
         glm::ivec3 aabb_min(world_data.voxels_per_chunk_axis);
         glm::ivec3 aabb_max(0);
-
         for (int z = 0; z < voxels_per_chunk_axis + 2; z++)
             for (int y = 0; y < voxels_per_chunk_axis + 2; y++)
             {
                 solid_mask[z][y] = 0;
                 for (int x = 0; x < voxels_per_chunk_axis + 2; x++)
                 {
-                    uint16_t material = calculate_material(x, y, z, chunk_origin, voxel_size);
+                    glm::vec3 voxel_origin = glm::vec3(x, y, z) * voxel_size + chunk_origin;
+
+                    uint16_t material = 0;
+
+                    if (structures)
+                        material = get_structure_material(edits, structures, voxel_origin, voxel_size);
+                   
+                    if (material == 0)
+                        material = calculate_material(x, y, z, chunk_origin, voxel_size);
                     
                     bool is_solid = material != 0;
+                    material_map[z][y][x] = material;
+                    solid_mask[z][y] |= is_solid ? (1ull << x) : 0;
+                    
                     if (is_solid &&
                         x > 0 && x <= world_data.voxels_per_chunk_axis &&
                         y > 0 && y <= world_data.voxels_per_chunk_axis &&
@@ -366,25 +411,11 @@ struct VoxelData
                         aabb_max.z = glm::max(aabb_max.z, z - 1);
                     }
                     
-                    material_map[z][y][x] = material;
-                    solid_mask[z][y] |= (material != 0) ? (1ull << x) : 0;
                 }
             }
 
         return true;
     }
-
-    //uint32_t to_index(uint32_t x, uint32_t y, uint32_t z) const
-    //{
-    //    return x + y * 64 + z * 64 * 64;
-    //}
-    //
-    //void to_coords(uint32_t i, uint32_t* x, uint32_t* y, uint32_t* z) const
-    //{
-    //    *x = i % 64;
-    //    *y = (i / 64) % 64;
-    //    *z = (i / 64 / 64) % 64;
-    //}
 
     // Fills face_mask slice at pos with data, if dir uses axis X, then face_mask_3d is populated and param pos is unused
     void compute_face_mask(FaceDirection dir, int pos, int voxels_per_chunk_axis)
@@ -559,12 +590,37 @@ struct VoxelData
     }
 };
 
+static ChunkGreedyMesherResult mesh_naive(VoxelData* data, GreedyFace* out_buffer, int voxels_per_chunk_axis)
+{
+    ChunkGreedyMesherResult result;
+    result.face_count = 0;
+    for (int z = 1; z <= voxels_per_chunk_axis; z++)
+        for (int y = 1; y <= voxels_per_chunk_axis; y++)
+            for (int x = 1; x <= voxels_per_chunk_axis; x++)
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    glm::ivec3 d =
+                    {
+                        (i == 0) - (i == 1),
+                        (i == 2) - (i == 3),
+                        (i == 4) - (i == 5)
+                    };
+                    if (data->material_map[z][y][x] != 0 && data->material_map[z + d.z][y + d.y][x + d.x] == 0)
+                    {
+                        GreedyFace face;
+                        face.pack(x-1, y-1, z-1, 1, 1, i, data->material_map[z][y][x]);
+                        out_buffer[result.face_count++] = face;
+                    }
+                }
+            }
+    return result;
+}
+
 static ChunkGreedyMesherResult mesh_greedy(VoxelData* data, GreedyFace* out_buffer, int voxels_per_chunk_axis)
 {
     ChunkGreedyMesherResult result;
     result.face_count = 0;
-
-    
 
     data->compute_face_mask(PositiveX, -1, voxels_per_chunk_axis);
     for (int i = 1; i <= voxels_per_chunk_axis; i++)
@@ -595,72 +651,3 @@ static ChunkGreedyMesherResult mesh_greedy(VoxelData* data, GreedyFace* out_buff
 
     return result;
 }
-
-/*
-auto mesh_slice = [&](FaceDirection dir, int x)
-        {
-            for (int z = 1; z <= voxels_per_chunk_axis; z++)
-            {
-                uint64_t& row = data->get_face_mask(x, z, dir);
-                row = row & ~((1ull) | (1ull << 63)); // clear 0th and last bit (since its neighbor chunk data)
-
-                while (row)
-                {
-                    int y0 = glm::findLSB(row); // 1 to 62 can only be returned (or -1)
-
-                    if (y0 == -1)
-                        break;
-
-                    int y = y0;
-                    uint16_t material = data->material_map[z][y][x];
-
-                    while (y <= voxels_per_chunk_axis && data->material_map[z][y][x] == material && (row & (1ull << y)) != 0)
-                        y++;
-                    // b <= 62 -> w <= 62
-
-                    int w = y - y0;
-
-                    if (!(w <= voxels_per_chunk_axis)) exit(1);
-                    if (!(y0 <= voxels_per_chunk_axis)) exit(1);
-                    uint64_t strip_mask = BITMASK(w) << y0;
-
-                    int z1 = z + 1;
-
-                    while (z1 <= voxels_per_chunk_axis)
-                    {
-                        uint64_t& next_row = data->get_face_mask(x, z1, dir);
-                        next_row = next_row & ~((1ull) | (1ull << 63));
-
-                        bool is_same_solid = strip_mask == (strip_mask & next_row); // check if neighbor row contains same adjacent solid voxels
-                        if (!is_same_solid)
-                            break;
-
-                        bool all_equal = true;
-                        for (int yi = y0; yi < y; yi++) // check if their material is same
-                        {
-                            if (data->material_map[z1][yi][x] != material)
-                            {
-                                all_equal = false;
-                                break;
-                            }
-                        }
-                        if (!all_equal)
-                            break;
-
-                        z1++; // merge the face strip
-                        next_row &= ~strip_mask; // erase the row since we merged the face
-                    }
-
-
-                    int h = z1 - z;
-
-                    GreedyFace face;
-                    face.pack(x - 1, y0 - 1, z - 1, w, h, dir, material);
-                    out_buffer[result.face_count++] = face;
-
-                    row &= (~0ull << y);
-                }
-            }
-        };
-
-*/

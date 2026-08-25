@@ -25,6 +25,16 @@ public:
 		m_Cv.notify_one();
 	}
 
+	void Enqueue(const T* values, uint64_t n)
+	{
+		{
+			std::lock_guard lock(m_Mtx);
+			for (uint64_t i = 0; i < n; i++)
+				m_Queue.push(values[i]);
+		}
+		m_Cv.notify_all();
+	}
+
 	bool TryDequeue(T& out)
 	{
 		std::lock_guard lock(m_Mtx);
@@ -70,8 +80,25 @@ public:
 		std::unique_lock lock(m_Mtx);
 		m_Cv.wait(lock, [this] {return !m_Queue.empty(); });
 
-		out = m_Queue.front();
+		out = std::move(m_Queue.front());
 		m_Queue.pop();
+	}
+
+	uint64_t WaitAndFlushN(T* out, uint64_t n)
+	{
+		std::unique_lock lock(m_Mtx);
+		m_Cv.wait(lock, [this] {return !m_Queue.empty(); });
+
+		size_t count = 0;
+		for (uint64_t i = 0; i < n; i++)
+		{
+			if (m_Queue.empty())
+				return count;
+			out[i] = std::move(m_Queue.front());
+			m_Queue.pop();
+			count++;
+		}
+		return count;
 	}
 
 	void Clear()

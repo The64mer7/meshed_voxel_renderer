@@ -217,7 +217,7 @@ public:
 
 using structure_id = uint64_t;
 using instance_id = uint64_t;
-class StructureOctree
+class WorldEdits
 {
 public:
 	using OctreeNode = TreeNode<8, std::vector<structure_id>>;
@@ -235,14 +235,14 @@ public:
 		m_root->cleanup();
 	}
 
-	structure_id add_structure(OctreeStructure* structure)
+	structure_id create_structure(OctreeStructure* structure)
 	{
 		m_structures.push_back(structure);
 		return m_structures.size() - 1;
 	}
 
 	template<typename instance_t>
-	std::vector<instance_t>& get_instances()
+	std::vector<instance_t>& _get_instances()
 	{
 		static std::vector<instance_t> instances;
 		return instances;
@@ -300,7 +300,7 @@ public:
 		return (id < m_structures.size()) ? m_structures[id] : nullptr;
 	}
 
-	~StructureOctree()
+	~WorldEdits()
 	{
 		for (int i = 0; i < m_structures.size(); i++)
 			delete m_structures[i];
