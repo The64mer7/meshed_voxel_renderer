@@ -26,7 +26,7 @@
 #include <condition_variable>
 
 #include "buffer.hpp"
-#include "thread_safe_stack.hpp"
+#include "thread_safe.hpp"
 
 static std::string VectorToName(glm::ivec3 key, char sep)
 {

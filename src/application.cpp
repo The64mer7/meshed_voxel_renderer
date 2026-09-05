@@ -1,4 +1,5 @@
 #include "application.hpp"
+#include "vox_parser.h"
 
 Application::Application(int width, int height)
     : width(width), height(height) {}
@@ -14,7 +15,7 @@ void Application::init()
     player.position = glm::vec3(0);
     player.direction = glm::vec3(0);
     player.velocity = glm::vec3(0);
-
+    
     glCreateVertexArrays(1, &dummy_vao);
     {
         int w, h, ch;
@@ -42,8 +43,7 @@ void Application::init()
     world_data.thread_pool = &thread_pool;
 
 
-    clipmap_settings.radius = 0;
-    clipmap_settings.further_radius = 1024*64;
+    clipmap_settings.radius = 32;
     clipmap_settings.min_depth = 4;
     clipmap_settings.max_depth = 19;
     clipmap_settings.chunks_per_lod = 3;
@@ -55,7 +55,7 @@ void Application::init()
         camera_settings.direction = { 0,0,-1 };
         camera_settings.nearPlane = world_data.world_size() * 2;
         camera_settings.farPlane = 0.125f;
-        camera_settings.fov = 45.f;
+        camera_settings.fov_degrees = 45.f;
         camera_settings.width = width;
         camera_settings.height = height;
         camera.Init(camera_settings);
@@ -147,16 +147,17 @@ void Application::handle_input()
 
             float distance = (n * f) / (depth * (n - f) + f);
 
+            static bool loaded = false;
+            static structure_id structure_handle = UINT64_MAX;
+            if (!loaded)
+            {
+                static VoxStructure* structure = new VoxStructure();
+                structure->load("resources/meshes/Willow_single_color.vox", glm::vec3(0.f));
+                structure_handle = world.create_structure(structure);
+                loaded = true;
+            }
+            world.place_structure(structure_handle, camera_world_pos() + ray_world * distance);
 
-            SphereStructure* structure = new SphereStructure();
-            structure->radius = sphere_radius;
-
-            structure->position = camera_world_pos() + ray_world * distance;
-
-
-
-            structure_id handle = world.create_structure(structure);
-            world.place_structure(handle);
         }
     }
 
@@ -172,7 +173,7 @@ int Application::frame_update()
 {
     handle_input();
     
-    world.update(camera.GetPosition() + glm::vec3(camera_chunk_coord) * camera_chunk_size);
+    world.update(camera_world_pos(), glm::radians(camera_settings.fov_degrees));
 
     frame_index++;
     return 0;
@@ -181,71 +182,90 @@ int Application::frame_update()
 int Application::frame_render()
 {
     glClearColor(0.7f, 0.7f, 0.9f, 1.f);
+    ChunkKey key;
+    world.render({ 0.f,0.f,0.f }, camera, camera_chunk_coord, camera_chunk_size, key);
 
-    world.render({ 0.f,0.f,0.f }, camera, camera_chunk_coord, camera_chunk_size);
+    if (input.is_key_clicked(GLFW_KEY_M))
+    {
+        VoxelData* voxdata = new VoxelData;
+        WorldInstance structures[16];
+        GreedyFace* buffer = new GreedyFace[62 * 62 * 62 * 3];
+        
+        voxdata->compute_terrain(key, world.get_data(), &world.get_edits(), structures, 16);
+        ChunkGreedyMesherResult result = mesh_greedy(voxdata, buffer, world.get_data().voxels_per_chunk_axis);
+        printf("%u", result.face_count);
+        delete[] buffer;
+        delete voxdata;
+    }
 
     return 0;
 }
 
 int Application::frame_render_ui()
 {
-    ImGui::Begin("Debug");
-
-    static bool display_allocator = false;
-    ImGui::Checkbox("display_allocator", &display_allocator);
-    if (display_allocator)
+    if (ImGui::Begin("Debug"))
     {
-        std::string string = "";
-        world.get_memory_allocator().debug_log(string, MB(4));
-        ImGui::TextWrapped(string.c_str());
-    }
-
-    static bool display_metrics = true;
-    ImGui::Checkbox("display_metrics", &display_metrics);
-    if (display_metrics)
-    {
-        ImGui::Text("chunks_allocated: %u", world.get_chunks_allocated());
-        ImGui::Text("nodes_created: %u", world.get_tree_node_size());
-        ImGui::SliderFloat("sphere_radius: %f", &sphere_radius, 1.f, 1024 * 1024);
-        glm::vec3 cam_rel = camera.GetPosition();
-        glm::vec3 cam_world = cam_rel + glm::vec3(camera_chunk_coord) * camera_chunk_size;
-        ImGui::Text("dt: %fms", 1000 * engine.delta_time);
-        ImGui::Text("camera_position: [%f, %f, %f]", cam_world.x, cam_world.y, cam_world.z);
-        ImGui::Text("camera_relative_position: [%f, %f, %f]", cam_rel.x, cam_rel.y, cam_rel.z);
-        ImGui::Text("camera_chunk_coord: [%u, %u, %u]", camera_chunk_coord.x, camera_chunk_coord.y, camera_chunk_coord.z);
-        ImGui::Text("camera_speed: %f u/s", camera_speed);
-        ImGui::Separator();
-
+        static bool display_allocator = false;
+        ImGui::Checkbox("display_allocator", &display_allocator);
+        if (display_allocator)
         {
-            int chunks_per_lod = clipmap_settings.chunks_per_lod;
-            int min_depth = clipmap_settings.min_depth;
-            int max_depth = clipmap_settings.max_depth;
-            bool update = false;
-            update = update || ImGui::SliderInt("chunks_per_lod", &chunks_per_lod, 0, 8);
-            update = update || ImGui::SliderInt("min_depth", &min_depth, 0, clipmap_settings.max_depth);
-            update = update || ImGui::SliderInt("max_depth", &max_depth, 0, 25);
-            update = update || ImGui::SliderFloat("further_radius", &clipmap_settings.further_radius, 0, 1024 * 1024);
-            update = update || ImGui::SliderFloat("radius", &clipmap_settings.radius, 0, clipmap_settings.further_radius);
-            clipmap_settings.chunks_per_lod = chunks_per_lod;
-            clipmap_settings.min_depth = min_depth;
-            clipmap_settings.max_depth = max_depth;
-            ImGui::Text("average_chunk_meshing_time %fms", float(g_generator_time_sum / g_generator_count));
-            if (update)
-                world.update_settings(clipmap_settings);
+            std::string string = "";
+            world.get_memory_allocator().debug_log(string, MB(4));
+            ImGui::TextWrapped(string.c_str());
         }
-        ImGui::Separator();
-        ImGui::Text("tasks_remaining: %u", thread_pool.get_task_count());
-        
-        world.debug_ui();
 
-        bool naive = g_mesh_naive._Storage._Value;
-        if (ImGui::Button(naive ? "set greedy" : "set naive", ImVec2{64,24}))
+        static bool display_metrics = true;
+
+        ImGui::Checkbox("display_metrics", &display_metrics);
+
+        if (display_metrics)
         {
-            g_mesh_naive.store(!naive);
-            world.regenerate_chunks(camera.GetPosition() + glm::vec3(camera_chunk_coord) * camera_chunk_size);
+            ImGui::Text("chunks_allocated: %u", world.get_chunks_allocated());
+            ImGui::Text("nodes_created: %u", world.get_tree_node_size());
+            ImGui::SliderFloat("sphere_radius: %f", &sphere_radius, 1.f, 1024 * 1024);
+            glm::vec3 cam_rel = camera.GetPosition();
+            glm::vec3 cam_world = cam_rel + glm::vec3(camera_chunk_coord) * camera_chunk_size;
+            ImGui::Text("dt: %fms", 1000 * engine.delta_time);
+            ImGui::Text("camera_position: [%f, %f, %f]", cam_world.x, cam_world.y, cam_world.z);
+            ImGui::Text("camera_relative_position: [%f, %f, %f]", cam_rel.x, cam_rel.y, cam_rel.z);
+            ImGui::Text("camera_chunk_coord: [%u, %u, %u]", camera_chunk_coord.x, camera_chunk_coord.y, camera_chunk_coord.z);
+            ImGui::Text("camera_speed: %f u/s", camera_speed);
+            ImGui::Separator();
+
+            {
+                int chunks_per_lod = clipmap_settings.chunks_per_lod;
+                int min_depth = clipmap_settings.min_depth;
+                int max_depth = clipmap_settings.max_depth;
+                bool update = false;
+                update = update || ImGui::SliderInt("chunks_per_lod", &chunks_per_lod, 0, 8);
+                update = update || ImGui::SliderInt("min_depth", &min_depth, 0, clipmap_settings.max_depth);
+                update = update || ImGui::SliderInt("max_depth", &max_depth, 0, 25);
+                update = update || ImGui::SliderFloat("radius", &clipmap_settings.radius, 0, 128);
+                clipmap_settings.chunks_per_lod = chunks_per_lod;
+                clipmap_settings.min_depth = min_depth;
+                clipmap_settings.max_depth = max_depth;
+
+                ImGui::Text("average_chunk_meshing_time %fms", float(g_meshing_time_sum / g_meshing_count));
+                ImGui::Text("average_chunk_generating_time %fms", float(g_generating_time_sum / g_generating_count));
+                ImGui::Text("average_chunk_total_time: %fms", (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
+                ImGui::Text("average_chunks_per_second: %f/s", thread_pool.get_worker_count() * 1000 / (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
+
+                if (update)
+                    world.update_settings(clipmap_settings);
+            }
+            ImGui::Separator();
+            ImGui::Text("tasks_remaining: %u", thread_pool.get_task_count());
+
+            world.debug_ui();
+
+            bool naive = g_mesh_naive._Storage._Value;
+            if (ImGui::Button(naive ? "set greedy" : "set naive", ImVec2{ 64,24 }))
+            {
+                g_mesh_naive.store(!naive);
+                world.regenerate_chunks(camera.GetPosition() + glm::vec3(camera_chunk_coord) * camera_chunk_size);
+            }
         }
     }
-
     ImGui::End();
     return 0;
 }

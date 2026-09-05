@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 #include "FastNoise/FastNoise.h"
+#include <cassert>
 
 enum world_preset
 {
@@ -13,94 +14,97 @@ class TerrainNoise
 public:
     inline static int seed = 0;
     inline static world_preset preset = world_preset::Mountains;
-    inline static FastNoise::SmartNode<FastNoise::Perlin> sourceNode;
-    inline static FastNoise::SmartNode<FastNoise::FractalFBm> terrainNode;
-    inline static FastNoise::SmartNode<FastNoise::Multiply> detailTerrain;
-    inline static auto terrainAmpNode = FastNoise::New<FastNoise::Constant>();
-    inline static FastNoise::SmartNode<FastNoise::FractalFBm> caveNode;
-    inline static FastNoise::SmartNode<FastNoise::Add> finalTerrain;
-    inline static FastNoise::SmartNode<FastNoise::FractalFBm> megaSource;
-    inline static FastNoise::SmartNode<FastNoise::Perlin> megaTerrainNode;
-    inline static FastNoise::SmartNode<FastNoise::Multiply> megaTerrainAmplitude;
-    inline static FastNoise::SmartNode<FastNoise::Add> megaTerrain;
-    inline static auto megaCurve = FastNoise::New<FastNoise::PowFloat>();
-    inline static auto zeroNode = FastNoise::New<FastNoise::Constant>();
-    inline static auto ampNode = FastNoise::New<FastNoise::Constant>();
-    inline static auto biasNode = FastNoise::New<FastNoise::Constant>();
+    inline static float frequency = 0.25f;
 
+    inline static FastNoise::SmartNode<FastNoise::Perlin> source_node;
+    inline static FastNoise::SmartNode<FastNoise::FractalFBm> terrain_node;
+    inline static FastNoise::SmartNode<FastNoise::Multiply> detail_terrain;
+    inline static FastNoise::SmartNode<FastNoise::Constant> terrain_amp_node;
+    inline static FastNoise::SmartNode<FastNoise::Add> final_terrain;
+    inline static FastNoise::SmartNode<FastNoise::Perlin> mega_terrain_node;
+    inline static FastNoise::SmartNode<FastNoise::Multiply> mega_terrain_amplitude;
+    inline static FastNoise::SmartNode<FastNoise::Add> mega_terrain;
+    inline static FastNoise::SmartNode<FastNoise::Constant> amp_node;
+    inline static FastNoise::SmartNode<FastNoise::Constant> bias_node;
 
     inline static void init()
     {
-        sourceNode = FastNoise::New<FastNoise::Perlin>();
-        terrainNode = FastNoise::New<FastNoise::FractalFBm>();
-        caveNode = FastNoise::New<FastNoise::FractalFBm>();
-        finalTerrain = FastNoise::New<FastNoise::Add>();
-        megaTerrainNode = FastNoise::New<FastNoise::Perlin>();
-        zeroNode->SetValue(0.f);
-        ampNode->SetValue(8*512.f);
-        biasNode->SetValue(1024.f);
-        terrainAmpNode->SetValue(32.f);
-    
-        megaTerrainAmplitude = FastNoise::New<FastNoise::Multiply>();
-        megaTerrain = FastNoise::New<FastNoise::Add>();
-        detailTerrain = FastNoise::New<FastNoise::Multiply>();
-    
+        source_node = FastNoise::New<FastNoise::Perlin>();
+        terrain_node = FastNoise::New<FastNoise::FractalFBm>();
+        final_terrain = FastNoise::New<FastNoise::Add>();
+        mega_terrain_node = FastNoise::New<FastNoise::Perlin>();
+        mega_terrain_amplitude = FastNoise::New<FastNoise::Multiply>();
+        mega_terrain = FastNoise::New<FastNoise::Add>();
+        detail_terrain = FastNoise::New<FastNoise::Multiply>();
+
+        terrain_amp_node = FastNoise::New<FastNoise::Constant>();
+        amp_node = FastNoise::New<FastNoise::Constant>();
+        bias_node = FastNoise::New<FastNoise::Constant>();
+
+        zero_node_values();
+
+        terrain_node->SetSource(source_node);
+
+        detail_terrain->SetLHS(terrain_node);
+        detail_terrain->SetRHS(terrain_amp_node);
+
+        mega_terrain_node->SetScale(1024.f);
+        mega_terrain_amplitude->SetLHS(amp_node);
+        mega_terrain_amplitude->SetRHS(mega_terrain_node);
+
+        mega_terrain->SetLHS(bias_node);
+        mega_terrain->SetRHS(mega_terrain_amplitude);
+
+        final_terrain->SetLHS(mega_terrain);
+        final_terrain->SetRHS(detail_terrain);
+
+        update_preset_parameters();
+    }
+
+    inline static void update_preset_parameters()
+    {
+        if (!terrain_node || !terrain_amp_node || !bias_node) return;
+
         switch (preset)
         {
         case world_preset::Mountains:
         {
-            terrainNode->SetSource(sourceNode);
-            terrainNode->SetOctaveCount(4);
-            terrainNode->SetLacunarity(2.2f);
-            terrainNode->SetGain(0.5f);
-    
-            detailTerrain->SetLHS(terrainNode);
-            detailTerrain->SetRHS(terrainAmpNode);
-    
-            megaTerrainNode->SetScale(1024.f);
-            megaTerrainAmplitude->SetLHS(ampNode);
-            megaTerrainAmplitude->SetRHS(megaTerrainNode);
-    
-    
-            megaTerrain->SetLHS(biasNode);
-            megaTerrain->SetRHS(megaTerrainAmplitude);
-    
-            finalTerrain->SetLHS(megaTerrain);
-            finalTerrain->SetRHS(detailTerrain);
-    
-    
-            caveNode->SetSource(sourceNode);
-            caveNode->SetOctaveCount(3);
-            caveNode->SetLacunarity(2.5f);
-            caveNode->SetGain(0.5f);
+            terrain_node->SetOctaveCount(4);
+            terrain_node->SetLacunarity(2.2f);
+            terrain_node->SetGain(0.5f);
+
+            terrain_amp_node->SetValue(32.f);
+            bias_node->SetValue(1024.f);
         }
         break;
         case world_preset::Desert:
         {
-            terrainNode->SetSource(sourceNode);
-            terrainNode->SetOctaveCount(5);
-            terrainNode->SetLacunarity(2.f);
-            terrainNode->SetGain(0.2f);
-    
-            caveNode->SetSource(sourceNode);
-            caveNode->SetOctaveCount(3);
-            caveNode->SetLacunarity(2.f);
-            caveNode->SetGain(0.2f);
+            terrain_node->SetOctaveCount(5);
+            terrain_node->SetLacunarity(2.0f);
+            terrain_node->SetGain(0.2f);
+
+            terrain_amp_node->SetValue(16.f);
+            bias_node->SetValue(512.f);
         }
         break;
-        case world_preset::count:
-            break;
         default:
             break;
         }
     }
-    
-    inline static float frequency = 0.25f;
+
+    inline static void zero_node_values()
+    {
+        if (amp_node) amp_node->SetValue(8 * 512.f);
+        if (bias_node) bias_node->SetValue(1024.f);
+        if (terrain_amp_node) terrain_amp_node->SetValue(32.f);
+    }
 
     static auto generate_2d(float* height_map, glm::vec2 origin, int voxels_per_chunk_axis, float voxel_size)
     {
+        assert(final_terrain && "TerrainNoise::init() was not called before generate_2d!");
+
         glm::vec2 noise = (origin - voxel_size) * frequency;
-        return finalTerrain->GenUniformGrid2D(
+        return final_terrain->GenUniformGrid2D(
             height_map,
             noise.x, noise.y,
             voxels_per_chunk_axis + 2, voxels_per_chunk_axis + 2,
@@ -111,8 +115,10 @@ public:
 
     static auto generate_3d(float* density_map, glm::vec3 origin, int voxels_per_chunk_axis, float voxel_size)
     {
+        assert(final_terrain && "TerrainNoise::init() was not called before generate_3d!");
+
         glm::vec3 noise = origin * frequency;
-        return finalTerrain->GenUniformGrid3D(
+        return final_terrain->GenUniformGrid3D(
             density_map,
             noise.x, noise.y, noise.z,
             voxels_per_chunk_axis + 2, voxels_per_chunk_axis + 2, voxels_per_chunk_axis + 2,

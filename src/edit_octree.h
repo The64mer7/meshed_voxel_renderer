@@ -6,7 +6,9 @@
 #include <format>
 #include <iostream>
 
+#include "vox_parser.h"
 #include "world_data.hpp"
+#include "vox_loader.h"
 
 struct aabb3d
 {
@@ -152,6 +154,213 @@ public:
 	}
 };
 
+static void print_binary_file(const std::string& file_path) {
+	std::ifstream file_handle(file_path, std::ios::binary | std::ios::ate);
+
+	if (!file_handle.is_open()) {
+		std::cerr << "Error: Could not open file " << file_path << "\n";
+		return;
+	}
+
+	std::streamsize file_size = file_handle.tellg();
+	file_handle.seekg(0, std::ios::beg);
+
+	std::vector<unsigned char> buffer(file_size);
+	if (!file_handle.read(reinterpret_cast<char*>(buffer.data()), file_size)) {
+		std::cerr << "Error: Could not read file content.\n";
+		return;
+	}
+
+	const std::size_t bytes_per_row = 16;
+
+	for (std::size_t i = 0; i < buffer.size(); i += bytes_per_row) {
+		std::cout << std::setw(8) << std::setfill('0') << std::hex << i << "  ";
+
+		for (std::size_t j = 0; j < bytes_per_row; ++j) {
+			if (i + j < buffer.size()) {
+				std::cout << std::setw(2) << std::setfill('0') << std::hex
+					<< static_cast<int>(buffer[i + j]) << " ";
+			}
+			else {
+				std::cout << "   ";
+			}
+
+			if (j == 7) std::cout << " ";
+		}
+
+		std::cout << " |";
+
+		for (std::size_t j = 0; j < bytes_per_row; ++j) {
+			if (i + j < buffer.size()) {
+				unsigned char byte_val = buffer[i + j];
+				if (byte_val >= 32 && byte_val <= 126) {
+					std::cout << byte_val;
+				}
+				else {
+					std::cout << ".";
+				}
+			}
+		}
+		std::cout << "|\n";
+	}
+}
+
+static constexpr int CHUNK_SIZE = 256;
+struct ChunkArray
+{
+	uint16_t data[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE] = {};
+};
+class VoxStructure : public OctreeStructure
+{
+public:
+	vox::ChunkSizeData size_data;
+	std::vector<uint16_t> voxels_3d_map;
+	aabb3d bounds;
+	glm::vec3 position;
+
+	void set_voxel(int x, int y, int z, uint16_t value)
+	{
+		voxels_3d_map[size_data.index(x, y, z)] = value;
+	}
+	
+	bool load(const std::string& filepath, const glm::vec3& position)
+	{
+#if USE_CUSTOM_VOX_LOADER
+		this->position = position;
+
+		bounds.min = glm::vec3(0);
+		bounds.max = glm::vec3(0);
+		
+		std::vector<vox::Voxel> voxels;
+		std::vector<uint32_t> colors;
+		vox::LoadResult result = vox::load_vox(filepath, &voxels, &colors, &size_data);
+		
+		if (result != vox::LoadResult::success)
+			return false;
+
+		std::swap(size_data.y, size_data.z);
+		voxels_3d_map.resize(size_data.volume(), 0);
+		for (size_t i = 0; i < voxels.size(); i++)
+		{
+			vox::Voxel voxel = voxels[i];
+			set_voxel(voxel.x, voxel.z, voxel.y, vox::quantize_color(colors[i]));
+			bounds.extend({ voxel.x, voxel.z, voxel.y });
+		}
+		bounds.min += position;
+		bounds.max += position;
+
+		return true;
+#else
+		this->position = position;
+		const ogt_vox_scene* scene = load_vox_scene(filepath.c_str(), 0);
+		bounds.min = glm::vec3(std::numeric_limits<float>::max());
+		bounds.max = glm::vec3(std::numeric_limits<float>::lowest());
+		bool has_voxels = false;
+
+		for (uint32_t i = 0; i < scene->num_instances; i++)
+		{
+			const ogt_vox_instance& instance = scene->instances[i];
+
+			if (instance.hidden)
+				continue;
+
+			const ogt_vox_model* model = scene->models[instance.model_index];
+
+			glm::mat4 transform_matrix(
+				instance.transform.m00, instance.transform.m01, instance.transform.m02, instance.transform.m03,
+				instance.transform.m10, instance.transform.m11, instance.transform.m12, instance.transform.m13,
+				instance.transform.m20, instance.transform.m21, instance.transform.m22, instance.transform.m23,
+				instance.transform.m30, instance.transform.m31, instance.transform.m32, instance.transform.m33
+			);
+			transform_matrix = glm::rotate(transform_matrix, glm::radians(-90.f), glm::vec3(1, 0, 0));
+
+			for (uint32_t z = 0; z < model->size_z; z++)
+			{
+				for (uint32_t y = 0; y < model->size_y; y++)
+				{
+					for (uint32_t x = 0; x < model->size_x; x++)
+					{
+						uint32_t voxel_index = x + (y * model->size_x) + (z * model->size_x * model->size_y);
+						uint8_t color_index = model->voxel_data[voxel_index];
+						if (color_index == 0)
+							continue;
+
+						ogt_vox_rgba rgba = scene->palette.color[color_index];
+
+						uint32_t packed_color = static_cast<uint32_t>(rgba.r) |
+							(static_cast<uint32_t>(rgba.g) << 8) |
+							(static_cast<uint32_t>(rgba.b) << 16) |
+							(static_cast<uint32_t>(rgba.a) << 24);
+
+						uint16_t quantized_color = vox::quantize_color(packed_color);
+
+						glm::vec4 local_pos(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z), 1.f);
+						glm::vec4 world_pos_v4 = transform_matrix * local_pos;
+						glm::ivec3 world_pos(glm::floor(world_pos_v4));
+						bounds.extend(glm::vec3(world_pos));
+						has_voxels = true;
+						glm::ivec3 chunk_coord = glm::floor(glm::vec3(world_pos) / static_cast<float>(CHUNK_SIZE));
+						glm::ivec3 local_voxel_pos = world_pos - chunk_coord * CHUNK_SIZE;
+
+						ChunkArray* chunk = model_data.get_or_emplace(chunk_coord);
+						if (chunk)
+						{
+							chunk->data[local_voxel_pos.z][local_voxel_pos.y][local_voxel_pos.x] = quantized_color;
+						}
+					}
+				}
+			}
+		}
+		if (has_voxels)
+		{
+			bounds.min += position;
+			bounds.max += position;
+		}
+		else
+		{
+			bounds.min = position;
+			bounds.max = position;
+		}
+		ogt_vox_destroy_scene(scene);
+#endif
+		return true;
+	}
+	SparseSet<glm::ivec3, ChunkArray> model_data;
+
+	uint16_t get_voxel(const glm::vec3& p, float size) override
+	{
+		glm::ivec3 voxel_pos = glm::floor(p + size * 0.5f);
+
+		glm::ivec3 chunk_coord = glm::floor(glm::vec3(voxel_pos) / static_cast<float>(CHUNK_SIZE));
+
+		glm::ivec3 local_pos = voxel_pos - chunk_coord * CHUNK_SIZE;
+
+		const ChunkArray* chunk = model_data.get(chunk_coord);
+		if (!chunk)
+			return 0;
+
+		if (local_pos.x < 0 || local_pos.x >= CHUNK_SIZE ||
+			local_pos.y < 0 || local_pos.y >= CHUNK_SIZE ||
+			local_pos.z < 0 || local_pos.z >= CHUNK_SIZE)
+		{
+			return 0;
+		}
+
+		return chunk->data[local_pos.z][local_pos.y][local_pos.x];
+	}
+
+	void get_bounds(glm::vec3* min, glm::vec3* max) override
+	{
+		*min = bounds.min;
+		*max = bounds.max;
+	}
+
+	bool is_destructive() override
+	{
+		return false;
+	}
+};
+
 class SphereStructure : public OctreeStructure
 {
 public:
@@ -217,10 +426,15 @@ public:
 
 using structure_id = uint64_t;
 using instance_id = uint64_t;
+struct WorldInstance
+{
+	structure_id structure_idx;
+	glm::vec3 position;
+};
 class WorldEdits
 {
 public:
-	using OctreeNode = TreeNode<8, std::vector<structure_id>>;
+	using OctreeNode = TreeNode<8, std::vector<instance_id>>;
 	void init(aabb3d aabb, uint64_t max_split_factor, uint64_t initial_split_factor)
 	{
 		this->max_split_factor = max_split_factor;
@@ -241,58 +455,56 @@ public:
 		return m_structures.size() - 1;
 	}
 
-	template<typename instance_t>
-	std::vector<instance_t>& _get_instances()
-	{
-		static std::vector<instance_t> instances;
-		return instances;
-	}
-
-	bool place_structure(structure_id id, const glm::vec3& position)
+	instance_id place_structure(structure_id id, const glm::vec3& position)
 	{
 		aabb3d structure_aabb;
 		auto* structure = get_structure(id);
 		if (structure == nullptr)
-			return false;
+			return UINT64_MAX;
 		
-		structure->get_bounds(&structure_aabb.min, &structure_aabb.max);
-		structure_aabb.min += position;
-		structure_aabb.max += position;
-
-		glm::vec3 p = structure_aabb.center();
-
-		aabb3d node_bounds;
-		glm::ivec3 morton;
-		auto* node = find_smallest_node_for_each<0>(structure_aabb, &node_bounds, &morton,
-			[id](OctreeNode* node) 
-			{
-				node->value.push_back(id);
-			}
-		);
-
-		if (!node)
-			return false;
-
-		std::cout << std::format("placing structure in node (new size: {}) {} {} {}\n", node->value.size(), std::bitset<32>(morton.x).to_string(), std::bitset<32>(morton.y).to_string(), std::bitset<32>(morton.z).to_string());
+		instance_id inst_id = m_instances.size();
 		
-		if (node->is_leaf() && node->value.size() >= max_structures_before_split)
-		{
-			printf("split triggered\n");
-			split_node(node, node_bounds);
-		}
-		else
-		{
-			node->value.pop_back();
-			add_node_structure(node, node_bounds, structure_aabb, id);
-		}
+		WorldInstance instance;
+		instance.structure_idx = id;
+		instance.position = position;
+		m_instances.push_back(instance);
 
-		return true;
+		insert_instance_to_octree(inst_id, structure, position);
+
+		return inst_id;
 	}
 
-	inline const std::vector<structure_id>* find_structures_in_region(const aabb3d& aabb)
+	uint32_t find_instances_in_region(const aabb3d& aabb, WorldInstance* out_instances, uint32_t max_instances)
 	{
 		OctreeNode* node = find_smallest_node<0>(aabb);
-		return node ? &node->value : nullptr;
+		if (node == nullptr)
+			return 0;
+
+		uint32_t write_idx = 0;
+		auto& instances = node->value;
+		for (uint32_t i = 0; i < instances.size(); i++)
+		{
+			if (write_idx >= max_instances)
+				break;
+
+			instance_id inst_id = instances[i];
+			WorldInstance& instance = m_instances[inst_id];
+			OctreeStructure* structure = get_structure(instance.structure_idx);
+			if (structure == nullptr)
+				continue;
+
+			aabb3d bounds;
+			structure->get_bounds(&bounds.min, &bounds.max);
+
+			bounds.min += instance.position;
+			bounds.max += instance.position;
+
+			if (bounds.intersects(aabb))
+			{
+				out_instances[write_idx++] = instance;
+			}
+		}
+		return write_idx;
 	}
 
 	OctreeStructure* get_structure(structure_id id)
@@ -303,7 +515,10 @@ public:
 	~WorldEdits()
 	{
 		for (int i = 0; i < m_structures.size(); i++)
+		{
 			delete m_structures[i];
+			m_structures[i] = nullptr;
+		}
 	}
 
 	void for_each_leaf(std::function<void(ChunkKey)> fn_for_each)
@@ -405,19 +620,22 @@ private:
 
 			aabb3d child_bounds = node_bounds.octree_child(i);
 
-			for (structure_id id : node->value)
+			for (instance_id id : node->value)
 			{
-				OctreeStructure* structure = get_structure(id);
+				const WorldInstance& instance = m_instances[id];
+				OctreeStructure* structure = get_structure(instance.structure_idx);
 				aabb3d structure_bounds;
 				structure->get_bounds(&structure_bounds.min, &structure_bounds.max);
+				structure_bounds.min += instance.position;
+				structure_bounds.max += instance.position;
 
 				if (structure_bounds.intersects(child_bounds))
-					add_node_structure(node->children[i], node_bounds, structure_bounds, id);
+					add_node_instance(node->children[i], child_bounds, structure_bounds, id);
 			}
 		}
 	}
 
-	void add_node_structure(OctreeNode* node, const aabb3d& node_bounds, const aabb3d& structure_bounds, structure_id id)
+	void add_node_instance(OctreeNode* node, const aabb3d& node_bounds, const aabb3d& structure_bounds, instance_id instance)
 	{
 		struct StackItem
 		{
@@ -435,13 +653,46 @@ private:
 			if (!item.node || !structure_bounds.intersects(item.bounds))
 				continue;
 
-			item.node->value.push_back(id);
+			item.node->value.push_back(instance);
 
 			for (int i = 0; i < 8; i++)
 			{
-				if (node->children[i])
+				if (item.node->children[i])
 					stack.push({ item.node->children[i], item.bounds.octree_child(i) });
 			} 
+		}
+	}
+
+	void insert_instance_to_octree(instance_id instance, OctreeStructure* structure, const glm::vec3& position)
+	{
+		aabb3d structure_aabb;
+		structure->get_bounds(&structure_aabb.min, &structure_aabb.max);
+		structure_aabb.min += position;
+		structure_aabb.max += position;
+
+		glm::vec3 p = structure_aabb.center();
+
+		aabb3d node_bounds;
+		glm::ivec3 morton;
+		auto* node = find_smallest_node_for_each<0>(structure_aabb, &node_bounds, &morton,
+			[instance](OctreeNode* node)
+			{
+				node->value.push_back(instance);
+			}
+		);
+
+		if (!node)
+			return;
+
+
+		if (node->is_leaf() && node->value.size() >= max_structures_before_split)
+		{
+			split_node(node, node_bounds);
+		}
+		else
+		{
+			node->value.pop_back();
+			add_node_instance(node, node_bounds, structure_aabb, instance);
 		}
 	}
 
@@ -550,6 +801,8 @@ private:
 	}
 
 	std::vector<OctreeStructure*> m_structures;
+	std::vector<WorldInstance> m_instances;
+
 	uint64_t max_split_factor;
 	OctreeNode* m_root;
 	aabb3d m_root_bounds;

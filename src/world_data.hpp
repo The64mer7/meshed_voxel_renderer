@@ -25,10 +25,11 @@ struct ChunkKey
 
 	bool operator<(const ChunkKey& rhs) const
 	{
+		if (lod != rhs.lod) return lod > rhs.lod;
 		if (x != rhs.x) return x < rhs.x;
 		if (y != rhs.y) return y < rhs.y;
 		if (z != rhs.z) return z < rhs.z;
-		return lod < rhs.lod;
+		return false;
 	}
 
 	inline ChunkKey get_octree_child(int cx, int cy, int cz)

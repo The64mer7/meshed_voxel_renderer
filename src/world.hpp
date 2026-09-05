@@ -9,7 +9,7 @@
 #include "world_data.hpp"
 #include "utils.hpp"
 #include "chunk_mesher.hpp"
-#include "thread_safe_stack.hpp"
+#include "thread_safe.hpp"
 #include "edit_octree.h"
 
 #define VERTICES_PER_FACE 6
@@ -22,10 +22,12 @@ struct ChunkMesherTaskData
 	bool remesh;
 };
 
-inline std::atomic<double> g_generator_time_sum = 0;
-inline std::atomic<double> g_generator_count = 0;
-
+inline std::atomic<double> g_meshing_time_sum = 0;
+inline std::atomic<double> g_meshing_count = 0;
+inline std::atomic<double> g_generating_time_sum = 0;
+inline std::atomic<double> g_generating_count = 0;
 inline std::atomic_bool g_mesh_naive = false;
+
 struct UpdateGreedyMeshTask
 {
 	MemoryManager* manager = nullptr;
@@ -49,8 +51,11 @@ struct UpdateGreedyMeshTask
 
 		VoxelData* voxel_data = allocator->allocate<VoxelData>(1);
 		GreedyFace* faces_buffer = allocator->allocate<GreedyFace>(size_3d*6);
+
+		uint32_t max_structures = 16;
+		WorldInstance* structures = allocator->allocate<WorldInstance>(max_structures);
 		
-		if (voxel_data == nullptr || faces_buffer == nullptr)
+		if (voxel_data == nullptr || faces_buffer == nullptr || structures == nullptr)
 		{
 			LOG("ALLOCATION FAIL");
 			exit(1);
@@ -61,22 +66,29 @@ struct UpdateGreedyMeshTask
 			ChunkKey key = (*chunks)[i];
 
 			auto t0 = std::chrono::high_resolution_clock::now();
-			if (!voxel_data->compute_terrain(key, *world_data, edits)) continue;
+			if (!voxel_data->compute_terrain(key, *world_data, edits, structures, max_structures)) continue;
+			auto t1 = std::chrono::high_resolution_clock::now();
+			double elapsed_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
 
+			auto tmesh0 = std::chrono::high_resolution_clock::now();
 			ChunkGreedyMesherResult result;
 			if (g_mesh_naive)
 				result = mesh_naive(voxel_data, faces_buffer, voxels_per_axis);
 			else
 				result = mesh_greedy(voxel_data, faces_buffer, voxels_per_axis);
+			auto tmesh1 = std::chrono::high_resolution_clock::now();
+			double elapsed_mesh_ms = std::chrono::duration<double, std::milli>(tmesh1 - tmesh0).count();
 
 
-			auto t1 = std::chrono::high_resolution_clock::now();
-			double elapsed_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
 
 			if (result.face_count > 0)
 			{
-				g_generator_count += 1;
-				g_generator_time_sum += elapsed_ms;
+				g_meshing_count += 1;
+				g_meshing_time_sum += elapsed_mesh_ms;
+				
+				g_generating_count += 1;
+				g_generating_time_sum += elapsed_ms;
+
 
 				size_t size_bytes = result.face_count * sizeof(GreedyFace);
 				offset_t offset_bytes;
@@ -113,13 +125,13 @@ struct UpdateGreedyMeshTask
 struct TaskGen
 {
 	UpdateGreedyMeshTask task;
-	OctreeClipmap* clipmap;
+	OctreeClipmap::LeavesVector* chunks;
 	uint32_t batch_size;
 	
 	UpdateGreedyMeshTask operator()(uint32_t i)
 	{
 		task.begin = i * batch_size;
-		task.end = glm::min(task.begin + batch_size, clipmap->get_leaves_created().size());
+		task.end = glm::min(task.begin + batch_size, chunks->size());
 
 		return task;
 	}
@@ -155,11 +167,11 @@ class World
 {
 public:
 	void create(const WorldData& data, const OctreeClipmapGenerateSettings& settings);
-	void update(const glm::vec3& player_position, bool force = false);
-	void render(const glm::vec3& world_origin, const FirstPersonCamera& camera, const glm::ivec3& camera_chunk_coord, float camera_chunk_size);
+	void update(const glm::vec3& player_position, float fov);
+	void render(const glm::vec3& world_origin, const FirstPersonCamera& camera, const glm::ivec3& camera_chunk_coord, float camera_chunk_size, ChunkKey& out_key);
 	void destroy();
 	structure_id create_structure(OctreeStructure* structure);
-	void place_structure(structure_id handle);
+	void place_structure(structure_id handle, const glm::vec3& position);
 
 	void update_settings(const OctreeClipmapGenerateSettings& settings);
 	void regenerate_chunks(const glm::vec3& player_position);
@@ -198,36 +210,16 @@ public:
 		return m_data;
 	}
 
+	WorldEdits& get_edits()
+	{
+		return m_edits;
+	}
+
+
 private:
 	bool erase_chunk(const ChunkKey& key);
 
-	void submit_tasks(OctreeClipmap::LeavesVector* chunks, bool remesh, std::atomic_uint32_t* counter)
-	{
-		uint32_t batch_size = std::thread::hardware_concurrency();
-		uint32_t batch_count = (chunks->size() + batch_size - 1) / batch_size;
-
-		if (batch_count > 0)
-		{
-			UpdateGreedyMeshTask task;
-			task.gpu_buffer_mapping = &m_world_buffer_mapping;
-			task.chunks = chunks;
-			task.manager = &m_world_buffer_manager;
-			task.voxels_per_axis = m_data.voxels_per_chunk_axis;
-			task.world_data = &m_data;
-			task.edits = &m_edits;
-			task.tasks_counter = counter;
-			task.chunks_to_commit = &m_chunks_to_commit;
-			task.remesh = remesh;
-			
-			TaskGen generator;
-
-			generator.task = task;
-			generator.clipmap = &m_clipmap;
-			generator.batch_size = batch_size;
-
-			m_tasks.submit_batch(*m_data.thread_pool, batch_count, counter, generator);
-		}
-	}
+	void submit_tasks(OctreeClipmap::LeavesVector* chunks, bool remesh, std::atomic_uint32_t* counter);
 	OctreeClipmapGenerateSettings m_settings;
 	glm::vec3 m_last_update_pos;
 
@@ -249,7 +241,7 @@ private:
 	std::atomic_uint32_t m_chunks_to_mesh_counter = 0;
 	std::atomic_uint32_t m_chunks_to_remesh_counter = 0;
 
-	std::queue<structure_id> m_placed_structures;
+	std::queue<WorldInstance> m_placed_instances;
 
 	ThreadSafeQueue<ChunkMesherTaskData> m_chunks_to_submit;
 

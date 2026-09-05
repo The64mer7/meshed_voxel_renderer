@@ -32,6 +32,39 @@ public:
 		return true;
 	}
 
+	bool emplace(const Key& key)
+	{
+		auto it = m_to_index.find(key);
+
+		if (it != m_to_index.end())
+			return false;
+
+		m_to_index[key] = m_keys.size();
+
+		m_keys.push_back(key);
+		m_values.emplace_back();
+
+		return true;
+	}
+
+	Value* get_or_emplace(const Key& key)
+	{
+		auto it = m_to_index.find(key);
+
+		if (it != m_to_index.end())
+		{
+			return &m_values[it->second];
+		}
+
+		size_t new_index = m_keys.size();
+		m_to_index[key] = new_index;
+
+		m_keys.push_back(key);
+		m_values.emplace_back();
+
+		return &m_values[new_index];
+	}
+
 	Value* get(const Key& key)
 	{
 		auto it = m_to_index.find(key);

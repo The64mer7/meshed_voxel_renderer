@@ -6,6 +6,7 @@ void World::create(const WorldData& data, const OctreeClipmapGenerateSettings& s
 {
 	m_data = data;
 	m_settings = settings;
+	TerrainNoise::init();
 
 	aabb3d bounds;
 	bounds.min = { 0,0,0 };
@@ -54,11 +55,8 @@ void World::create(const WorldData& data, const OctreeClipmapGenerateSettings& s
 	vert.cleanup();
 	frag.cleanup();
 
-	TerrainNoise::init();
 	m_clipmap.world_scale = data.world_size();
 	m_last_update_pos = glm::vec3(0.f);
-
-
 }
 
 bool World::erase_chunk(const ChunkKey& key)
@@ -78,7 +76,35 @@ bool World::erase_chunk(const ChunkKey& key)
 	return true;
 }
 
-void World::update(const glm::vec3& player_position, bool force)
+void World::submit_tasks(OctreeClipmap::LeavesVector* chunks, bool remesh, std::atomic_uint32_t* counter)
+{
+	uint32_t batch_size = std::thread::hardware_concurrency() * 4;
+	uint32_t batch_count = (chunks->size() + batch_size - 1) / batch_size;
+	
+	if (batch_count > 0)
+	{
+		UpdateGreedyMeshTask task;
+		task.gpu_buffer_mapping = &m_world_buffer_mapping;
+		task.chunks = chunks;
+		task.manager = &m_world_buffer_manager;
+		task.voxels_per_axis = m_data.voxels_per_chunk_axis;
+		task.world_data = &m_data;
+		task.edits = &m_edits;
+		task.tasks_counter = counter;
+		task.chunks_to_commit = &m_chunks_to_commit;
+		task.remesh = remesh;
+
+		TaskGen generator;
+
+		generator.task = task;
+		generator.chunks = chunks;
+		generator.batch_size = batch_size;
+
+		m_tasks.submit_batch(*m_data.thread_pool, batch_count, counter, generator);
+	}
+}
+
+void World::update(const glm::vec3& player_position, float fov)
 {
 	ChunkMesherTaskData data;
 	while (m_chunks_to_commit.TryDequeue(data))
@@ -96,26 +122,27 @@ void World::update(const glm::vec3& player_position, bool force)
 	if (!m_tasks.all_tasks_completed(&m_chunks_to_mesh_counter)) // because we cant use m_edits while this is running
 		return;
 
-	if (!m_placed_structures.empty())
+	if (!m_placed_instances.empty())
 	{
-		structure_id id = m_placed_structures.front();
-		m_placed_structures.pop();
+		WorldInstance instance = m_placed_instances.front();
+		m_placed_instances.pop();
 
 
-		OctreeStructure* structure = m_edits.get_structure(id);
+		OctreeStructure* structure = m_edits.get_structure(instance.structure_idx);
 		if (!structure)
 			return;
 
-		m_edits.place_structure(id, glm::vec3(0.f));
+		m_edits.place_structure(instance.structure_idx, instance.position);
 
 		aabb3d bounds;
 		structure->get_bounds(&bounds.min, &bounds.max);
+		bounds.min += instance.position;
+		bounds.max += instance.position;
 
 		m_chunks_to_remesh.clear();
 		get_chunks_in_area(&m_chunks_to_remesh, bounds);
 
 		submit_tasks(&m_chunks_to_remesh, true, &m_chunks_to_remesh_counter);
-		
 		return;
 	}
 
@@ -126,7 +153,7 @@ void World::update(const glm::vec3& player_position, bool force)
 		{
 			m_last_update_pos = player_position;
 			double t0 = glfwGetTime();
-			m_clipmap.generate_by_chunks(m_settings, player_position);
+			m_clipmap.generate_by_perspective(m_settings.min_depth, m_settings.max_depth, player_position, fov, m_settings.radius);
 			double t1 = glfwGetTime();
 
 			m_clipmap.for_each_chunk_removed([this](const ChunkKey& key) {erase_chunk(key); });
@@ -135,7 +162,7 @@ void World::update(const glm::vec3& player_position, bool force)
 	};
 }
 
-void World::render(const glm::vec3& world_origin, const FirstPersonCamera& camera, const glm::ivec3& camera_chunk_coord, float camera_chunk_size)
+void World::render(const glm::vec3& world_origin, const FirstPersonCamera& camera, const glm::ivec3& camera_chunk_coord, float camera_chunk_size, ChunkKey& out_key)
 {
 	if (m_chunk_draw_cmds.get_keys().size() > 0)
 	{
@@ -174,7 +201,15 @@ void World::render(const glm::vec3& world_origin, const FirstPersonCamera& camer
 		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_chunk_draw_cmds_buffer.Handle());
 		glMultiDrawArraysIndirect(GL_TRIANGLES, 0, m_chunk_draw_cmds.get_values().size(), sizeof(DrawArraysIndirectCommand));
 
+
+		out_key = m_clipmap.find_leaf(camera.GetPosition() + glm::vec3(camera_chunk_coord) * camera_chunk_size);
+		
 		m_sp.uniform1ui("u_render_cube", 1u);
+		m_sp.uniform3f("u_cube_min", m_data.chunk_origin(out_key));
+		m_sp.uniform3f("u_cube_size", glm::vec3(m_data.chunk_size(out_key.lod)));
+
+		glDrawArrays(GL_LINES, 0, 24);
+
 		if (false)
 		for (int i = 0; i < m_chunk_aabbs.get_keys().size(); i++)
 		{
@@ -206,9 +241,10 @@ structure_id World::create_structure(OctreeStructure* structure)
 	return m_edits.create_structure(structure);
 }
 
-void World::place_structure(structure_id handle)
+void World::place_structure(structure_id handle, const glm::vec3& position)
 {
-	m_placed_structures.push(handle);
+	WorldInstance instance = { handle, position };
+	m_placed_instances.push(instance);
 }
 
 void World::update_settings(const OctreeClipmapGenerateSettings& settings)
@@ -240,13 +276,11 @@ void World::get_loaded_chunks_in_area(std::vector<ChunkKey>* out_chunks, const a
 	}
 }
 
-
 void World::get_chunks_in_area(std::vector<ChunkKey>* out_chunks, const aabb3d& bounds)
 {
 	for (size_t i = 0; i < m_clipmap.get_leaves().size(); i++)
 	{
 		ChunkKey key = m_clipmap.get_leaves()[i];
-
 		aabb3d aabb;
 		aabb.min = m_data.chunk_origin(key);
 		aabb.max = aabb.min + m_data.chunk_size(key.lod);
