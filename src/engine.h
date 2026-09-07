@@ -56,9 +56,6 @@ static void APIENTRY OpenGLDebugCallback(GLenum source,
 
     printf("[OpenGL Debug] source=%u type=%u id=%u severity=%u\n%s\n",
         source, type, id, severity, message);
-
-    if (severity == GL_DEBUG_SEVERITY_HIGH)
-        __debugbreak();
 }
 
 class Engine
