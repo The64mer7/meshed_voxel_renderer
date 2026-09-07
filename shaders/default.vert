@@ -165,77 +165,61 @@ uniform vec3 u_cube_size;
 #define BITMASK(n) ((1 << (n)) - 1)
 
 
+vec3 calculate_cube_position()
+{
+    return u_cube_min + cube_vertex(gl_VertexID) * u_cube_size;
+}
+
+vec3 calculate_triangle_position()
+{
+    return triangle[gl_VertexID].xyz;
+}
+
+vec3 calculate_voxel_face_position()
+{
+    chunk_aabb = aabbs[gl_DrawID];
+
+    uint face_id = gl_VertexID / 6;
+    uint vertex_id = gl_VertexID % 6;
+    uint64_t packed_face = faces[face_id];
+    greedy_face face = unpack_face(packed_face);
+
+    material_id = face.custom;
+    vox_color.r = ((material_id >> 0) & 0xfu) / 15.f;
+    vox_color.g = ((material_id >> 4) & 0xfu) / 15.f;
+    vox_color.b = ((material_id >> 8) & 0xfu) / 15.f;
+
+    float lod_factor = float(1 << chunk_aabb.w);
+    ivec3 chunk_offset = chunk_aabb.xyz;
+    float chunk_size = (u_world_size / lod_factor);
+    float voxel_size = chunk_size / float(u_voxel_count);
+
+    float cam_to_lod = (u_camera_chunk_size / chunk_size);
+    vec3 cam_chunk_lod_offset = u_camera_chunk_coord * cam_to_lod;
+    vec3 relative_offset = vec3(chunk_offset) - cam_chunk_lod_offset;
+
+    vec3 vert = emit_greedy_face(face, voxel_size, vertex_id);
+    return vert + relative_offset * chunk_size;
+}
+
 void main()
 {
     draw_id = gl_DrawID;
-    
+
     if(u_render_cube == 1u)
     {
-        v_world_pos = u_cube_min + cube_vertex(gl_VertexID) * u_cube_size;
-    }
-    else if(u_render_triangle == 1u)
-    {
-        v_world_pos = triangle[gl_VertexID].xyz;
-        gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos, 1.0);
+        v_world_pos = calculate_cube_position();
+        gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos - u_camera_chunk_coord * 8.f, 1.0);
         return;
     }
-    else
+
+    if(u_render_triangle == 1u)
     {
-        // #if 0
-        // chunk_aabb = aabbs[gl_DrawID];
-        // uint face_id = gl_VertexID / 6;
-        // uint vertex_id = gl_VertexID % 6;
-        // uint packed_face = faces[face_id];
-        // 
-        // uint x = (packed_face >> 0) & BITMASK(6);
-        // uint y = (packed_face >> 6) & BITMASK(6);
-        // uint z = (packed_face >> 12) & BITMASK(6);
-        // uint dir = (packed_face >> 18) & BITMASK(3);
-        // uint material = (packed_face >> 21) & BITMASK(11);
-        // material_id = material;
-        // 
-        // vox_color = vec3(1.f);
-        // 
-        // float lod_factor = float(1 << chunk_aabb.w);
-        // ivec3 chunk_offset = chunk_aabb.xyz; //offset in lod coordinates <0, 2^lod)
-        // float chunk_size = (u_world_size / lod_factor);
-        // float voxel_size = chunk_size/float(u_voxel_count);
-        // 
-        // vec3 vert = emit_face(dir, voxel_size, ivec3(x, y, z), vertex_id);
-        // 
-        // float cam_to_lod = (u_camera_chunk_size / chunk_size);
-        // vec3 cam_chunk_lod_offset = u_camera_chunk_coord * cam_to_lod;
-        // 
-        // vec3 relative_offset = vec3(chunk_offset) - cam_chunk_lod_offset;
-        // v_world_pos = vert.xyz + relative_offset * chunk_size;
-        // 
-        // gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos, 1.0);
-        // return;
-        // #endif // _____________________
-
-        chunk_aabb = aabbs[gl_DrawID];
-
-        uint face_id = gl_VertexID / 6;
-        uint vertex_id = gl_VertexID % 6;
-        uint64_t packed_face = faces[face_id];
-        greedy_face face = unpack_face(packed_face);
-
-        material_id = face.custom;
-
-        float lod_factor = float(1 << chunk_aabb.w);
-        ivec3 chunk_offset = chunk_aabb.xyz; //offset in lod coordinates <0, 2^lod)
-        float chunk_size = (u_world_size / lod_factor);
-        float voxel_size = chunk_size / float(u_voxel_count);
-
-        float cam_to_lod = (u_camera_chunk_size / chunk_size);
-        vec3 cam_chunk_lod_offset = u_camera_chunk_coord * cam_to_lod;
-        vec3 relative_offset = vec3(chunk_offset) - cam_chunk_lod_offset;
-
-        vec3 vert = emit_greedy_face(face, voxel_size, vertex_id);
-        v_world_pos = vert + relative_offset * chunk_size;
+        v_world_pos = calculate_triangle_position();
         gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos, 1.0);
         return;
     }
 
-    gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos - u_camera_chunk_coord * 8.f, 1.0);
+    v_world_pos = calculate_voxel_face_position();
+    gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos, 1.0);
 }

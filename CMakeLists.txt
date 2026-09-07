@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.25)
 project(meshed_voxel_renderer LANGUAGES CXX)
 
+if(CMAKE_BUILD_TYPE MATCHES Release)
+    
+    if(MSVC)
+        add_compile_options(/O2)
+    else()
+        add_compile_options(-O3)
+    endif()
+else()
+endif()
+
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;MinSizeRel" CACHE STRING "" FORCE)
 set(PROJECT_NAME_VAR meshed_voxel_renderer)
 

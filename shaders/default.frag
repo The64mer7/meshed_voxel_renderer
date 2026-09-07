@@ -46,36 +46,74 @@ vec2 remap_texture(uint id, vec2 uv)
 	return final;
 }
 
+vec4 calculate_triangle_fragment()
+{
+    return vec4(1.0, 0.0, 0.0, 1.0);
+}
+
+vec4 calculate_cube_fragment()
+{
+    return vec4(1.0, 0.0, 0.0, 1.0);
+}
+
+vec3 calculate_surface_normal()
+{
+    vec3 dx = dFdx(v_world_pos);
+    vec3 dy = dFdy(v_world_pos);
+    return normalize(cross(dx, dy));
+}
+
+float calculate_side_shading(vec3 normal)
+{
+    float shading = 1.0;
+    if (abs(normal.x) > 0.9) shading = 0.8;
+    if (abs(normal.z) > 0.9) shading = 0.7;
+    if (normal.y < -0.9)     shading = 0.6;
+    return shading;
+}
+
+vec3 sample_material_color(vec3 normal)
+{
+    float pixels_per_voxel = 1.0;
+    vec2 triplanar = get_triplanar_uv(pixels_per_voxel * v_world_pos * (62.0 / 64.0), normal);
+    triplanar = remap_texture(material_id, triplanar);
+    
+    vec3 base_color = texture(u_texture_atlas, triplanar).rgb;
+    vec3 tint = mix(vec3(1.0), vec3(95.0, 159.0, 63.0) / 200.0, float(material_id == 5u));
+    
+    return base_color * tint;
+}
+
+#define RENDER_TEXTURE 0
+vec4 calculate_voxel_fragment()
+{
+#if RENDER_TEXTURE
+    vec3 normal = calculate_surface_normal();
+    float side_shading = calculate_side_shading(normal);
+    float lambert = max(0.1, dot(normal, sun_dir));
+    vec3 color = sample_material_color(normal);
+    vec3 diffuse = side_shading * color;
+
+    return vec4(diffuse, 1.0);
+#else
+    return vec4(vox_color, 1.0);
+#endif
+}
+
+
 void main()
 {
-	if(u_render_triangle == 1u)
-	{
-		FragColor = vec4(1,0,0,1);
-		return;
-	}
-	vec3 dx = dFdx(v_world_pos);
-	vec3 dy = dFdy(v_world_pos);
+    if (u_render_triangle == 1u)
+    {
+        FragColor = calculate_triangle_fragment();
+        return;
+    }
 
-	vec3 normal = normalize(cross(dx, dy));
-	
-	float side_shading = 1.0;
-	if (abs(normal.x) > 0.9) side_shading = 0.8;
-	if (abs(normal.z) > 0.9) side_shading = 0.7;
-	if (normal.y < -0.9)     side_shading = 0.6;
-	float lambert =  max(0.1f, dot(normal, sun_dir));
-#if 1
-	float pixels_per_voxel = 16.f;
-	vec2 triplanar = get_triplanar_uv(pixels_per_voxel*v_world_pos * 62.f/64.f, normal);
+    if (u_render_cube == 1u)
+    {
+        FragColor = calculate_cube_fragment();
+        return;
+    }
 
-	triplanar = remap_texture(material_id, triplanar);
-	vec3 color = texture(u_texture_atlas, triplanar).rgb * mix(vec3(1.f), vec3(95,159,63)/200.f, float(material_id == 5));
-#else
-	vec3 color = vox_color;
-#endif
-	vec3 diffuse = side_shading * color;
-
-	FragColor = vec4(diffuse, 1);
-	if(u_render_cube == 1u)
-		FragColor = vec4(1,0,0,1);
-	//FragColor = mod(vec4(chunk_aabb), 2.f) / vec4(vec3(2), 2.f);
+    FragColor = calculate_voxel_fragment();
 }
