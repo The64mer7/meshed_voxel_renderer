@@ -147,16 +147,31 @@ void Application::handle_input()
 
             float distance = (n * f) / (depth * (n - f) + f);
 
-            static bool loaded = false;
-            static structure_id structure_handle = UINT64_MAX;
-            if (!loaded)
+            if (selected_structure == Structure_VOX)
             {
-                static VoxStructure* structure = new VoxStructure();
-                structure->load("resources/meshes/Willow_single_color.vox", glm::vec3(0.f));
-                structure_handle = world.create_structure(structure);
-                loaded = true;
+                static bool loaded = false;
+                static structure_id structure_handle = UINT64_MAX;
+                if (!loaded)
+                {
+                    static VoxStructure* structure = new VoxStructure();
+                    structure->load("resources/meshes/Willow_single_color.vox", glm::vec3(0.f));
+                    structure_handle = world.create_structure(structure);
+                    loaded = true;
+                }
+                world.place_structure(structure_handle, camera_world_pos() + ray_world * distance);
             }
-            world.place_structure(structure_handle, camera_world_pos() + ray_world * distance);
+            if (selected_structure == Structure_SPHERE || selected_structure == Structure_SPHERE_REMOVE)
+            {
+                static structure_id structure_handle = UINT64_MAX;
+                static SphereStructure* structure = new SphereStructure();
+                structure->position = glm::vec3(0.f);
+                structure->radius = sphere_radius;
+                structure->radius_sq = sphere_radius * sphere_radius;
+                structure->flags |= (selected_structure == Structure_SPHERE_REMOVE) ? 1 : 0;
+                structure_handle = world.create_structure(structure);
+                world.place_structure(structure_handle, camera_world_pos() + ray_world * distance);
+            }
+
 
         }
     }
@@ -201,10 +216,38 @@ int Application::frame_render()
     return 0;
 }
 
+inline static const char* structure_names[Application::Structure_NONE] = 
+{
+    "Vox model",
+    "Sphere",
+    "Sphere Remove"
+};
+
 int Application::frame_render_ui()
 {
     if (ImGui::Begin("Debug"))
     {
+        ImGui::SliderInt("structure_type", &selected_structure, 0, Structure_NONE-1);
+        if (selected_structure == Structure_SPHERE || selected_structure == Structure_SPHERE_REMOVE)
+        {
+            if (selected_structure == Structure_SPHERE_REMOVE)
+                ImGui::Text("NOT ADDED YET");
+            ImGui::SliderFloat("sphere_radius: %f", &sphere_radius, 1.f, 1024);
+        }
+
+        ImGui::Text("selected_structure: %s", structure_names[selected_structure]);
+        static bool display_controls = false;
+        ImGui::Checkbox("display_controls", &display_controls);
+        if (display_controls)
+        {
+            ImGui::Text(    "RMB Hold - Rotate camera\n"
+                            "WASD - Camera movement\n"
+                            "Space - Move camera up\n"
+                            "Left Ctrl - Move camera down\n"
+                            "F - increase camera speed\n"
+                            "R - decrease camera speed\n"
+                            "LMB - Place structure at cursor position\n");
+        }
         static bool display_allocator = false;
         ImGui::Checkbox("display_allocator", &display_allocator);
         if (display_allocator)
@@ -217,12 +260,10 @@ int Application::frame_render_ui()
         static bool display_metrics = true;
 
         ImGui::Checkbox("display_metrics", &display_metrics);
-
         if (display_metrics)
         {
             ImGui::Text("chunks_allocated: %u", world.get_chunks_allocated());
             ImGui::Text("nodes_created: %u", world.get_tree_node_size());
-            ImGui::SliderFloat("sphere_radius: %f", &sphere_radius, 1.f, 1024 * 1024);
             glm::vec3 cam_rel = camera.GetPosition();
             glm::vec3 cam_world = cam_rel + glm::vec3(camera_chunk_coord) * camera_chunk_size;
             ImGui::Text("dt: %fms", 1000 * engine.delta_time);
@@ -237,10 +278,9 @@ int Application::frame_render_ui()
                 int min_depth = clipmap_settings.min_depth;
                 int max_depth = clipmap_settings.max_depth;
                 bool update = false;
-                update = update || ImGui::SliderInt("chunks_per_lod", &chunks_per_lod, 0, 8);
-                update = update || ImGui::SliderInt("min_depth", &min_depth, 0, clipmap_settings.max_depth);
-                update = update || ImGui::SliderInt("max_depth", &max_depth, 0, 25);
-                update = update || ImGui::SliderFloat("radius", &clipmap_settings.radius, 0, 128);
+                update = update || ImGui::SliderInt("min_depth", &min_depth, 0, 5);
+                update = update || ImGui::SliderInt("max_depth", &max_depth, 5, 25);
+                update = update || ImGui::SliderFloat("LOD radius", &clipmap_settings.radius, 0, 128);
                 clipmap_settings.chunks_per_lod = chunks_per_lod;
                 clipmap_settings.min_depth = min_depth;
                 clipmap_settings.max_depth = max_depth;
@@ -248,7 +288,7 @@ int Application::frame_render_ui()
                 ImGui::Text("average_chunk_meshing_time %fms", float(g_meshing_time_sum / g_meshing_count));
                 ImGui::Text("average_chunk_generating_time %fms", float(g_generating_time_sum / g_generating_count));
                 ImGui::Text("average_chunk_total_time: %fms", (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
-                ImGui::Text("average_chunks_per_second: %f/s", thread_pool.get_worker_count() * 1000 / (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
+                ImGui::Text("average_chunks_per_second: ~%f/s", thread_pool.get_worker_count() * 1000 / (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
 
                 if (update)
                     world.update_settings(clipmap_settings);

@@ -147,6 +147,7 @@ struct VoxelData
             glm::vec3 local_voxel_origin = voxel_origin - instance.position;
             
             uint16_t material = structure->get_voxel(local_voxel_origin, voxel_size);
+            //*out_destructive = structure->is_destructive();
 
             if (material)
                 return material;
@@ -196,12 +197,12 @@ struct VoxelData
 
                     if (instance_count)
                         material = get_structure_material(edits, instances, instance_count, voxel_origin, voxel_size);
-                   
-                    if (material == 0)
+
+                    if (material == 0) 
                         material = calculate_material(x, y, z, chunk_origin, voxel_size, voxel_origin);
                     
                     bool is_solid = material != 0;
-                    material_map[z][y][x] = material;
+                    material_map[z][y][x] = is_solid ? material : 0;
                     solid_mask[z][y] |= is_solid ? (1ull << x) : 0;
                     
                     if (is_solid &&

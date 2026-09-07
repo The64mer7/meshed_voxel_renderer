@@ -366,6 +366,7 @@ class SphereStructure : public OctreeStructure
 public:
 	glm::vec3 position;
 	float radius;
+	float radius_sq;
 	uint8_t flags = 0;
 	
 	static constexpr uint8_t flag_none = 0;
@@ -373,7 +374,28 @@ public:
 
 	uint16_t get_voxel(const glm::vec3& p, float size) override
 	{
-		return glm::dot(p - position, p - position) <= radius * radius ? 1 : 0;
+	    glm::vec3 lp = p - position;
+	    float dist_sq = glm::dot(lp, lp);
+
+	    if (dist_sq > radius_sq) {
+	        return 0;
+	    }
+
+	    uint32_t hash = (static_cast<int32_t>(p.x) * 73856093u) ^ 
+	                    (static_cast<int32_t>(p.y) * 19349663u) ^ 
+	                    (static_cast<int32_t>(p.z) * 83492791u);
+	    uint32_t variation = hash % 5u;
+
+	    uint16_t r = 13 + (variation > 3 ? 1 : 0);
+	    uint16_t g = 11 + (variation == 1 || variation == 3 ? 1 : 0);
+	    uint16_t b = 7 + (variation == 2 ? 1 : 0);
+	    constexpr uint16_t a = 15;
+
+	    r = uint16_t(r) & 0xfu;
+	    g = uint16_t(g) & 0xfu;
+	    b = uint16_t(b) & 0xfu;
+
+	    return r | (g << 4) | (b << 8) | (a << 12);
 	}
 	void get_bounds(glm::vec3* min, glm::vec3* max) override
 	{

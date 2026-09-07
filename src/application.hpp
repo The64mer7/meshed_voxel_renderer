@@ -39,7 +39,16 @@ public:
     {
         bool chunk_aabb = false;
     } display_settings;
+    
+    enum Structure : int
+    {
+        Structure_VOX,
+        Structure_SPHERE,
+        Structure_SPHERE_REMOVE,
+        Structure_NONE
+    };
 
+    int selected_structure = Structure_VOX;
 private:
     glm::vec3 camera_world_pos() const;
     void handle_input();
