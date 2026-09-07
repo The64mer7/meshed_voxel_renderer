@@ -12,6 +12,9 @@
 #include "world_data.hpp"
 #include "edit_octree.h"
 
+#include <xsimd/xsimd.hpp>
+
+
 struct ChunkMeshResult
 {
     uint32_t face_count = 0;
@@ -413,7 +416,7 @@ static ChunkGreedyMesherResult mesh_greedy(VoxelData* data, GreedyFace* out_buff
 
     for (int x = 1; x <= voxels_per_chunk_axis; x++)
         data->mesh_slice<NegativeX>(x, voxels_per_chunk_axis, out_buffer, result);
-
+    
     for (int i = 1; i <= voxels_per_chunk_axis; i++)
     {
         data->compute_face_mask<PositiveZ>(i, voxels_per_chunk_axis);

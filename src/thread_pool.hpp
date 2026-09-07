@@ -4,6 +4,7 @@
 #include <mutex>
 #include <functional>
 #include <queue>
+#include <condition_variable>
 
 #include "arena_allocator.hpp"
 

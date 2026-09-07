@@ -99,11 +99,11 @@ const int vert_id_to_face_id[2][6] = int[2][6](
 vec3 emit_face(uint face_dir, float voxel_size, ivec3 voxel_coord, uint face_vertex_id)
 {
     vec3 delta = 
-    {
-        (float(face_dir == 0) - float(face_dir == 1)),
-        (float(face_dir == 2) - float(face_dir == 3)),
-        (float(face_dir == 4) - float(face_dir == 5))
-    };
+    vec3(
+        float(face_dir == 0) - float(face_dir == 1),
+        float(face_dir == 2) - float(face_dir == 3),
+        float(face_dir == 4) - float(face_dir == 5)
+    );
 
 
     int axis = (int(face_dir) / 2);
@@ -209,7 +209,7 @@ void main()
     if(u_render_cube == 1u)
     {
         v_world_pos = calculate_cube_position();
-        gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos - u_camera_chunk_coord * 8.f, 1.0);
+        gl_Position = u_proj_matrix * u_view_matrix * vec4(v_world_pos - u_camera_chunk_coord * vec3(8.f), 1.0);
         return;
     }
 

@@ -20,7 +20,7 @@ public:
 	{
 		m_handle = glCreateShader(shaderType);
 
-		std::ifstream file(filepath);
+		std::ifstream file(filepath, std::ios::binary);
 		if (!file.is_open())
 		{
 			std::cerr << "FILE: " << filepath << " NOT FOUND";

@@ -258,7 +258,7 @@ int Application::frame_render_ui()
 
             world.debug_ui();
 
-            bool naive = g_mesh_naive._Storage._Value;
+            bool naive = g_mesh_naive.load();
             if (ImGui::Button(naive ? "set greedy" : "set naive", ImVec2{ 64,24 }))
             {
                 g_mesh_naive.store(!naive);

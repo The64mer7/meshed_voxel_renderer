@@ -1,0 +1,65 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20
+  },
+  "configurePresets": [
+    {
+      "name": "ucrt64-gcc-ninja-release",
+      "displayName": "UCRT64 GCC & Ninja (Release)",
+      "description": "Optimized release build",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "BUILD_DOCS": "OFF",
+        "FASTNOISE2_BUILD_DOCS": "OFF"
+      }
+    },
+    {
+      "name": "ucrt64-gcc-ninja-debug",
+      "displayName": "UCRT64 GCC & Ninja (Debug)",
+      "description": "Unoptimized debug build with full symbols",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "BUILD_DOCS": "OFF",
+        "FASTNOISE2_BUILD_DOCS": "OFF"
+      }
+    },
+    {
+      "name": "ucrt64-gcc-ninja-relwithdebinfo",
+      "displayName": "UCRT64 GCC & Ninja (RelWithDebInfo)",
+      "description": "Optimized release build with debugging symbols",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/relwithdebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "BUILD_DOCS": "OFF",
+        "FASTNOISE2_BUILD_DOCS": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-release",
+      "configurePreset": "ucrt64-gcc-ninja-release"
+    },
+    {
+      "name": "build-debug",
+      "configurePreset": "ucrt64-gcc-ninja-debug"
+    },
+    {
+      "name": "build-relwithdebinfo",
+      "configurePreset": "ucrt64-gcc-ninja-relwithdebinfo"
+    }
+  ]
+}
