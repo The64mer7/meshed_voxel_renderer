@@ -87,16 +87,15 @@ vec3 sample_material_color(vec3 normal)
 #define RENDER_TEXTURE 0
 vec4 calculate_voxel_fragment()
 {
-#if RENDER_TEXTURE
     vec3 normal = calculate_surface_normal();
     float side_shading = calculate_side_shading(normal);
-    float lambert = max(0.1, dot(normal, sun_dir));
+#if RENDER_TEXTURE
     vec3 color = sample_material_color(normal);
     vec3 diffuse = side_shading * color;
 
     return vec4(diffuse, 1.0);
 #else
-    return vec4(vox_color, 1.0);
+    return vec4(vox_color * vec3(side_shading), 1.0);
 #endif
 }
 
