@@ -163,7 +163,7 @@ void Application::handle_input()
             if (selected_structure == Structure_SPHERE || selected_structure == Structure_SPHERE_REMOVE)
             {
                 static structure_id structure_handle = UINT64_MAX;
-                static SphereStructure* structure = new SphereStructure();
+                SphereStructure* structure = new SphereStructure();
                 structure->position = glm::vec3(0.f);
                 structure->radius = sphere_radius;
                 structure->radius_sq = sphere_radius * sphere_radius;
