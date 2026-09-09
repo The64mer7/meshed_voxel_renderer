@@ -236,7 +236,7 @@ int Application::frame_render_ui()
         }
 
         ImGui::Text("selected_structure: %s", structure_names[selected_structure]);
-        static bool display_controls = false;
+        static bool display_controls = true;
         ImGui::Checkbox("display_controls", &display_controls);
         if (display_controls)
         {
@@ -257,7 +257,7 @@ int Application::frame_render_ui()
             ImGui::TextWrapped(string.c_str());
         }
 
-        static bool display_metrics = true;
+        static bool display_metrics = false;
 
         ImGui::Checkbox("display_metrics", &display_metrics);
         if (display_metrics)
