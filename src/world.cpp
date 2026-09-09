@@ -204,11 +204,10 @@ void World::render(const glm::vec3& world_origin, const FirstPersonCamera& camer
 
 		out_key = m_clipmap.find_leaf(camera.GetPosition() + glm::vec3(camera_chunk_coord) * camera_chunk_size);
 		
-		m_sp.uniform1ui("u_render_cube", 1u);
-		m_sp.uniform3f("u_cube_min", m_data.chunk_origin(out_key));
-		m_sp.uniform3f("u_cube_size", glm::vec3(m_data.chunk_size(out_key.lod)));
-
-		glDrawArrays(GL_LINES, 0, 24);
+		// m_sp.uniform1ui("u_render_cube", 1u);
+		// m_sp.uniform3f("u_cube_min", m_data.chunk_origin(out_key));
+		// m_sp.uniform3f("u_cube_size", glm::vec3(m_data.chunk_size(out_key.lod)));
+		// glDrawArrays(GL_LINES, 0, 24);
 
 		if (false)
 		for (int i = 0; i < m_chunk_aabbs.get_keys().size(); i++)
