@@ -23,3 +23,8 @@ F - increase camera speed
 R - decrease camera speed
 
 LMB - Place structure at cursor position
+
+![Screenshot 0](screenshots/0.png)
+![Screenshot 3](screenshots/3.png)
+![Screenshot 4](screenshots/4.png)
+![Screenshot 1](screenshots/1.png)
