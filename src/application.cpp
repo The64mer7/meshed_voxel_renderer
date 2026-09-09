@@ -52,7 +52,7 @@ void Application::init()
 
     {
         camera_settings.position = { 0,0,0 };
-        camera_settings.direction = { 0,0,-1 };
+        camera_settings.direction = glm::normalize(glm::vec3( 1,0,1 ));
         camera_settings.nearPlane = world_data.world_size() * 2;
         camera_settings.farPlane = 0.125f;
         camera_settings.fov_degrees = 45.f;
@@ -232,7 +232,7 @@ int Application::frame_render_ui()
         {
             if (selected_structure == Structure_SPHERE_REMOVE)
                 ImGui::Text("NOT ADDED YET");
-            ImGui::SliderFloat("sphere_radius: %f", &sphere_radius, 1.f, 1024);
+            ImGui::SliderFloat("sphere_radius: %f", &sphere_radius, 1.f, 4096);
         }
 
         ImGui::Text("selected_structure: %s", structure_names[selected_structure]);

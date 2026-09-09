@@ -25,9 +25,9 @@ public:
     FirstPersonCameraSettings camera_settings;
     FirstPersonCamera camera;
     
-    glm::ivec3 camera_chunk_coord = { 32,128,32 };
+    glm::ivec3 camera_chunk_coord = { 220,600,300 };
     float camera_chunk_size = 8.f;
-    float camera_speed = 1.f;
+    float camera_speed = 512.f;
 
     uint32_t texture_atlas;
     uint32_t dummy_vao;
@@ -48,7 +48,7 @@ public:
         Structure_NONE
     };
 
-    int selected_structure = Structure_VOX;
+    int selected_structure = Structure_SPHERE;
 private:
     glm::vec3 camera_world_pos() const;
     void handle_input();
