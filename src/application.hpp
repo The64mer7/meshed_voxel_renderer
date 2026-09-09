@@ -38,6 +38,7 @@ public:
     struct DisplaySettings
     {
         bool chunk_aabb = false;
+        bool ui = true;
     } display_settings;
     
     enum Structure : int

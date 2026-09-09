@@ -112,6 +112,11 @@ void Application::handle_input()
         camera_speed = glm::max(camera_speed, 0.01f);
     }
 
+    if (input.is_key_clicked(GLFW_KEY_TAB))
+    {
+        display_settings.ui ^= 1;
+    }
+
     float sensitivity = 0.01f;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -200,19 +205,6 @@ int Application::frame_render()
     ChunkKey key;
     world.render({ 0.f,0.f,0.f }, camera, camera_chunk_coord, camera_chunk_size, key);
 
-    if (input.is_key_clicked(GLFW_KEY_M))
-    {
-        VoxelData* voxdata = new VoxelData;
-        WorldInstance structures[16];
-        GreedyFace* buffer = new GreedyFace[62 * 62 * 62 * 3];
-        
-        voxdata->compute_terrain(key, world.get_data(), &world.get_edits(), structures, 16);
-        ChunkGreedyMesherResult result = mesh_greedy(voxdata, buffer, world.get_data().voxels_per_chunk_axis);
-        printf("%u", result.face_count);
-        delete[] buffer;
-        delete voxdata;
-    }
-
     return 0;
 }
 
@@ -225,88 +217,91 @@ inline static const char* structure_names[Application::Structure_NONE] =
 
 int Application::frame_render_ui()
 {
-    if (ImGui::Begin("Debug"))
+    if (display_settings.ui)
     {
-        ImGui::SliderInt("structure_type", &selected_structure, 0, Structure_NONE-1);
-        if (selected_structure == Structure_SPHERE || selected_structure == Structure_SPHERE_REMOVE)
+        if (ImGui::Begin("Debug"))
         {
-            if (selected_structure == Structure_SPHERE_REMOVE)
-                ImGui::Text("NOT ADDED YET");
-            ImGui::SliderFloat("sphere_radius: %f", &sphere_radius, 1.f, 4096);
-        }
-
-        ImGui::Text("selected_structure: %s", structure_names[selected_structure]);
-        static bool display_controls = true;
-        ImGui::Checkbox("display_controls", &display_controls);
-        if (display_controls)
-        {
-            ImGui::Text(    "RMB Hold - Rotate camera\n"
-                            "WASD - Camera movement\n"
-                            "Space - Move camera up\n"
-                            "Left Ctrl - Move camera down\n"
-                            "F - increase camera speed\n"
-                            "R - decrease camera speed\n"
-                            "LMB - Place structure at cursor position\n");
-        }
-        static bool display_allocator = false;
-        ImGui::Checkbox("display_allocator", &display_allocator);
-        if (display_allocator)
-        {
-            std::string string = "";
-            world.get_memory_allocator().debug_log(string, MB(4));
-            ImGui::TextWrapped(string.c_str());
-        }
-
-        static bool display_metrics = false;
-
-        ImGui::Checkbox("display_metrics", &display_metrics);
-        if (display_metrics)
-        {
-            ImGui::Text("chunks_allocated: %u", world.get_chunks_allocated());
-            ImGui::Text("nodes_created: %u", world.get_tree_node_size());
-            glm::vec3 cam_rel = camera.GetPosition();
-            glm::vec3 cam_world = cam_rel + glm::vec3(camera_chunk_coord) * camera_chunk_size;
-            ImGui::Text("dt: %fms", 1000 * engine.delta_time);
-            ImGui::Text("camera_position: [%f, %f, %f]", cam_world.x, cam_world.y, cam_world.z);
-            ImGui::Text("camera_relative_position: [%f, %f, %f]", cam_rel.x, cam_rel.y, cam_rel.z);
-            ImGui::Text("camera_chunk_coord: [%u, %u, %u]", camera_chunk_coord.x, camera_chunk_coord.y, camera_chunk_coord.z);
-            ImGui::Text("camera_speed: %f u/s", camera_speed);
-            ImGui::Separator();
-
+            ImGui::SliderInt("structure_type", &selected_structure, 0, Structure_NONE-1);
+            if (selected_structure == Structure_SPHERE || selected_structure == Structure_SPHERE_REMOVE)
             {
-                int chunks_per_lod = clipmap_settings.chunks_per_lod;
-                int min_depth = clipmap_settings.min_depth;
-                int max_depth = clipmap_settings.max_depth;
-                bool update = false;
-                update = update || ImGui::SliderInt("min_depth", &min_depth, 0, 5);
-                update = update || ImGui::SliderInt("max_depth", &max_depth, 5, 25);
-                update = update || ImGui::SliderFloat("LOD radius", &clipmap_settings.radius, 0, 128);
-                clipmap_settings.chunks_per_lod = chunks_per_lod;
-                clipmap_settings.min_depth = min_depth;
-                clipmap_settings.max_depth = max_depth;
-
-                ImGui::Text("average_chunk_meshing_time %fms", float(g_meshing_time_sum / g_meshing_count));
-                ImGui::Text("average_chunk_generating_time %fms", float(g_generating_time_sum / g_generating_count));
-                ImGui::Text("average_chunk_total_time: %fms", (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
-                ImGui::Text("average_chunks_per_second: ~%f/s", thread_pool.get_worker_count() * 1000 / (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
-
-                if (update)
-                    world.update_settings(clipmap_settings);
+                if (selected_structure == Structure_SPHERE_REMOVE)
+                    ImGui::Text("NOT ADDED YET");
+                ImGui::SliderFloat("sphere_radius: %f", &sphere_radius, 1.f, 4096);
             }
-            ImGui::Separator();
-            ImGui::Text("tasks_remaining: %u", thread_pool.get_task_count());
 
-            world.debug_ui();
-
-            bool naive = g_mesh_naive.load();
-            if (ImGui::Button(naive ? "set greedy" : "set naive", ImVec2{ 64,24 }))
+            ImGui::Text("selected_structure: %s", structure_names[selected_structure]);
+            static bool display_controls = true;
+            ImGui::Checkbox("display_controls", &display_controls);
+            if (display_controls)
             {
-                g_mesh_naive.store(!naive);
-                world.regenerate_chunks(camera.GetPosition() + glm::vec3(camera_chunk_coord) * camera_chunk_size);
+                ImGui::Text(    "RMB Hold - Rotate camera\n"
+                                "WASD - Camera movement\n"
+                                "Space - Move camera up\n"
+                                "Left Ctrl - Move camera down\n"
+                                "F - increase camera speed\n"
+                                "R - decrease camera speed\n"
+                                "LMB - Place structure at cursor position\n");
+            }
+            static bool display_allocator = false;
+            ImGui::Checkbox("display_allocator", &display_allocator);
+            if (display_allocator)
+            {
+                std::string string = "";
+                world.get_memory_allocator().debug_log(string, MB(4));
+                ImGui::TextWrapped(string.c_str());
+            }
+
+            static bool display_metrics = false;
+
+            ImGui::Checkbox("display_metrics", &display_metrics);
+            if (display_metrics)
+            {
+                ImGui::Text("chunks_allocated: %u", world.get_chunks_allocated());
+                ImGui::Text("nodes_created: %u", world.get_tree_node_size());
+                glm::vec3 cam_rel = camera.GetPosition();
+                glm::vec3 cam_world = cam_rel + glm::vec3(camera_chunk_coord) * camera_chunk_size;
+                ImGui::Text("dt: %fms", 1000 * engine.delta_time);
+                ImGui::Text("camera_position: [%f, %f, %f]", cam_world.x, cam_world.y, cam_world.z);
+                ImGui::Text("camera_relative_position: [%f, %f, %f]", cam_rel.x, cam_rel.y, cam_rel.z);
+                ImGui::Text("camera_chunk_coord: [%u, %u, %u]", camera_chunk_coord.x, camera_chunk_coord.y, camera_chunk_coord.z);
+                ImGui::Text("camera_speed: %f u/s", camera_speed);
+                ImGui::Separator();
+
+                {
+                    int chunks_per_lod = clipmap_settings.chunks_per_lod;
+                    int min_depth = clipmap_settings.min_depth;
+                    int max_depth = clipmap_settings.max_depth;
+                    bool update = false;
+                    update = update || ImGui::SliderInt("min_depth", &min_depth, 0, 5);
+                    update = update || ImGui::SliderInt("max_depth", &max_depth, 5, 25);
+                    update = update || ImGui::SliderFloat("LOD radius", &clipmap_settings.radius, 0, 128);
+                    clipmap_settings.chunks_per_lod = chunks_per_lod;
+                    clipmap_settings.min_depth = min_depth;
+                    clipmap_settings.max_depth = max_depth;
+
+                    ImGui::Text("average_chunk_meshing_time %fms", float(g_meshing_time_sum / g_meshing_count));
+                    ImGui::Text("average_chunk_generating_time %fms", float(g_generating_time_sum / g_generating_count));
+                    ImGui::Text("average_chunk_total_time: %fms", (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
+                    ImGui::Text("average_chunks_per_second: ~%f/s", thread_pool.get_worker_count() * 1000 / (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
+
+                    if (update)
+                        world.update_settings(clipmap_settings);
+                }
+                ImGui::Separator();
+                ImGui::Text("tasks_remaining: %u", thread_pool.get_task_count());
+
+                world.debug_ui();
+
+                bool naive = g_mesh_naive.load();
+                if (ImGui::Button(naive ? "set greedy" : "set naive", ImVec2{ 64,24 }))
+                {
+                    g_mesh_naive.store(!naive);
+                    world.regenerate_chunks(camera.GetPosition() + glm::vec3(camera_chunk_coord) * camera_chunk_size);
+                }
             }
         }
+        ImGui::End();
     }
-    ImGui::End();
     return 0;
 }
 
