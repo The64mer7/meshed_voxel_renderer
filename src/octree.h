@@ -17,11 +17,14 @@ static bool intersect_sphere_aabb3d(
     float sX, float sY, float sZ, float radius,
     float minX, float minY, float minZ,
     float maxX, float maxY, float maxZ,
-    float* outDistSquared = nullptr)
+    float *outDistSquared = nullptr)
 {
-    float closestX = (sX < minX) ? minX : (sX > maxX) ? maxX : sX;
-    float closestY = (sY < minY) ? minY : (sY > maxY) ? maxY : sY;
-    float closestZ = (sZ < minZ) ? minZ : (sZ > maxZ) ? maxZ : sZ;
+    float closestX = (sX < minX) ? minX : (sX > maxX) ? maxX
+                                                      : sX;
+    float closestY = (sY < minY) ? minY : (sY > maxY) ? maxY
+                                                      : sY;
+    float closestZ = (sZ < minZ) ? minZ : (sZ > maxZ) ? maxZ
+                                                      : sZ;
 
     float dx = sX - closestX;
     float dy = sY - closestY;
@@ -49,7 +52,7 @@ struct OctreeClipmapGenerateSettings
 constexpr uint64_t invalid_id = UINT64_MAX;
 struct FlatOctreeNode
 {
-    uint64_t children[8] = { invalid_id ,invalid_id ,invalid_id ,invalid_id ,invalid_id ,invalid_id ,invalid_id ,invalid_id };
+    uint64_t children[8] = {invalid_id, invalid_id, invalid_id, invalid_id, invalid_id, invalid_id, invalid_id, invalid_id};
     bool is_leaf = true;
 };
 
@@ -59,21 +62,30 @@ public:
     using LeavesSet = std::unordered_set<ChunkKeyRaw>;
     using LeavesVector = std::vector<ChunkKey>;
 
-    LeavesVector& get_leaves()
+    LeavesVector &get_leaves()
     {
         return m_leaves_curr;
     }
 
-    LeavesVector& get_leaves_created()
+    LeavesVector &get_leaves_created()
     {
         return m_leaves_created;
     }
 
     std::vector<FlatOctreeNode> nodes;
+    std::vector<FlatOctreeNode> prev_nodes;
 
-    float origin_x = 0.f, origin_y = 0.f, origin_z = 0.f, world_scale = 0.f;
-    
-    ChunkKey find_leaf(const glm::vec3& position)
+    glm::vec3 origin;
+    float world_scale;
+
+    uint64_t child_index(const std::vector<FlatOctreeNode> &tree, uint64_t node, uint64_t child) const
+    {
+        if (node >= tree.size())
+            return invalid_id;
+        return tree[node].children[child];
+    }
+
+    ChunkKey find_leaf(const glm::vec3 &position)
     {
 
         for (size_t i = 0; i < m_leaves_curr.size(); i++)
@@ -87,12 +99,12 @@ public:
                 return key;
         }
         return ChunkKey(0, 0, 0, 0);
-        ChunkKey key = ChunkKey{ 0,0,0,0 };
-        
+        ChunkKey key = ChunkKey{0, 0, 0, 0};
+
         uint32_t i = 0;
-        glm::vec3 origin = { origin_x, origin_y, origin_z };
+        glm::vec3 origin = {origin.x, origin.y, origin.z};
         float chunk_size = world_scale;
-        
+
         while (i < nodes.size())
         {
             FlatOctreeNode node = nodes[i];
@@ -103,8 +115,8 @@ public:
 
             glm::vec3 offset = position - origin;
             glm::ivec3 indices = glm::floor(offset / children_size);
-            if (!glm::all(glm::greaterThanEqual(indices,  glm::ivec3(0))) ||
-                !glm::all(glm::lessThan(indices,          glm::ivec3(2))))
+            if (!glm::all(glm::greaterThanEqual(indices, glm::ivec3(0))) ||
+                !glm::all(glm::lessThan(indices, glm::ivec3(2))))
             {
                 return key;
             }
@@ -120,7 +132,7 @@ public:
         return key;
     }
 
-    void regenerate(const aabb3d& bounds)
+    void regenerate(const aabb3d &bounds)
     {
         m_leaves_created.clear();
         m_leaves_removed.clear();
@@ -132,11 +144,11 @@ public:
             ChunkKey key;
         };
         aabb3d root_bounds;
-        root_bounds.min = { origin_x, origin_y, origin_z };
+        root_bounds.min = {origin.x, origin.y, origin.z};
         root_bounds.max = root_bounds.min + world_scale;
 
-        StackItem root = { 0, root_bounds, glm::ivec4(0) };
-        
+        StackItem root = {0, root_bounds, glm::ivec4(0)};
+
         std::stack<StackItem> stack;
         stack.push(root);
 
@@ -150,7 +162,7 @@ public:
             if (!item.bounds.intersects(bounds))
                 continue;
 
-            FlatOctreeNode& node = nodes[item.index];
+            FlatOctreeNode &node = nodes[item.index];
 
             if (node.is_leaf)
             {
@@ -183,20 +195,19 @@ public:
         }
     }
 
-    void generate_by_chunks(const OctreeClipmapGenerateSettings& settings, const glm::vec3& position)
+    void generate_by_chunks(const OctreeClipmapGenerateSettings &settings, const glm::vec3 &position)
     {
         generate(
-            settings.min_depth, 
-            settings.max_depth, 
-            position.x, 
-            position.y, 
-            position.z, 
-            settings.radius, 
-            settings.further_radius, 
-            settings.further_radius * glm::pow(0.5f, settings.chunks_per_lod)
-        );
+            settings.min_depth,
+            settings.max_depth,
+            position.x,
+            position.y,
+            position.z,
+            settings.radius,
+            settings.further_radius,
+            settings.further_radius * glm::pow(0.5f, settings.chunks_per_lod));
     }
-    void generate_by_perspective(uint32_t min_depth, uint32_t max_depth, const glm::vec3& position, float fov, float radius)
+    void generate_by_perspective(uint32_t min_depth, uint32_t max_depth, const glm::vec3 &position, float fov, float radius)
     {
         nodes.clear();
 
@@ -206,7 +217,7 @@ public:
         {
             uint64_t parent_idx;
             uint8_t parent_spatial_idx;
-            ChunkKey leaf_data;
+            ChunkKey key;
             float px, py, pz, size;
             float depth;
         };
@@ -215,10 +226,10 @@ public:
         StackItem root;
         root.parent_idx = invalid_id;
         root.parent_spatial_idx = 0;
-        root.leaf_data = glm::ivec4(0);
-        root.px = origin_x;
-        root.py = origin_y;
-        root.pz = origin_z;
+        root.key = glm::ivec4(0);
+        root.px = origin.x;
+        root.py = origin.y;
+        root.pz = origin.z;
         root.size = world_scale;
         root.depth = 0;
 
@@ -227,52 +238,43 @@ public:
 
         while (!stack.empty())
         {
-            StackItem parent = stack.top();
+            StackItem parent_item = stack.top();
             stack.pop();
 
             uint64_t node_idx = nodes.size();
             nodes.push_back(FlatOctreeNode());
 
-            if (parent.depth >= max_depth)
+            if (parent_item.depth >= max_depth)
             {
-                m_leaves_curr.push_back(parent.leaf_data.raw);
+                m_leaves_curr.push_back(parent_item.key.raw);
                 continue;
             }
 
-            float child_size = parent.size * 0.5f;
+            float child_size = parent_item.size * 0.5f;
 
             bool has_children = false;
             for (int z = 0; z < 2; z++)
                 for (int y = 0; y < 2; y++)
                     for (int x = 0; x < 2; x++)
                     {
-                        float cx = parent.px + child_size * x;
-                        float cy = parent.py + child_size * y;
-                        float cz = parent.pz + child_size * z;
-                        float dist = glm::distance(glm::vec3{ cx,cy, cz } + child_size * 0.5f, position);
+                        float cx = parent_item.px + child_size * x;
+                        float cy = parent_item.py + child_size * y;
+                        float cz = parent_item.pz + child_size * z;
+                        float target_depth = get_target_depth(glm::vec3{cx, cy, cz} + child_size * 0.5f, position, radius, max_depth);
 
-                        ChunkKey leaf;
-                        leaf = parent.leaf_data;
-                        leaf.lod += 1;
-                        leaf.x = (leaf.x << 1) | x;
-                        leaf.y = (leaf.y << 1) | y;
-                        leaf.z = (leaf.z << 1) | z;
+                        ChunkKey child_key = parent_item.key.get_octree_child(x, y, z);
 
-                        float dist_ratio = glm::max(1.0f, dist / radius);
-                        float target_depth = max_depth - glm::log2(dist_ratio);
-                        target_depth = glm::max(0.f, target_depth);
-
-                        if (parent.depth < target_depth || parent.depth < min_depth)
+                        if (parent_item.depth < target_depth || parent_item.depth < min_depth)
                         {
 
                             has_children = true;
                             StackItem child_item;
-                            child_item.depth = parent.depth + 1;
+                            child_item.depth = parent_item.depth + 1;
                             child_item.size = child_size;
                             child_item.px = cx;
                             child_item.py = cy;
                             child_item.pz = cz;
-                            child_item.leaf_data = leaf;
+                            child_item.key = child_key;
                             child_item.parent_spatial_idx = x + 2 * y + 4 * z;
                             child_item.parent_idx = node_idx;
                             stack.push(child_item);
@@ -284,19 +286,108 @@ public:
                             nodes.push_back(FlatOctreeNode());
                             nodes[node_idx].children[x + 2 * y + 4 * z] = leaf_node_idx;
 #endif
-                            m_leaves_curr.push_back(leaf.raw);
+                            m_leaves_curr.push_back(child_key.raw);
                         }
                     }
 
-            if (has_children && parent.parent_idx != invalid_id)
+            if (has_children && parent_item.parent_idx != invalid_id)
             {
-                nodes[parent.parent_idx].is_leaf = false;
-                nodes[parent.parent_idx].children[parent.parent_spatial_idx] = node_idx;
+                nodes[parent_item.parent_idx].is_leaf = false;
+                nodes[parent_item.parent_idx].children[parent_item.parent_spatial_idx] = node_idx;
+            }
+        }
+        compute_leaves_delta();
+        if (has_duplicates(m_leaves_created))
+            LOG("CREATED");
+        if (has_duplicates(m_leaves_removed))
+            LOG("REMOVED");
+    }
+    void generate_by_perspective_fast(uint32_t min_depth, uint32_t max_depth, const glm::vec3 &position, float fov, float radius)
+    {
+        nodes.clear();
+        m_leaves_prev = std::move(m_leaves_curr);
+        m_leaves_created.clear();
+        m_leaves_removed.clear();
+
+        struct StackItem
+        {
+            uint64_t parent_idx;
+            uint8_t parent_spatial_idx;
+            ChunkKey key;
+            glm::vec3 pos;
+            float size;
+            int debug_depth;
+        };
+        std::stack<StackItem> stack;
+
+        StackItem root;
+        root.parent_idx = invalid_id;
+        root.parent_spatial_idx = 0;
+        root.key = glm::ivec4(0);
+        root.pos = origin;
+        root.size = world_scale;
+        root.debug_depth = 0;
+
+        stack.push(root);
+        float focal_length = glm::tan(fov);
+
+        while (!stack.empty())
+        {
+            StackItem node_item = stack.top();
+            stack.pop();
+
+            uint64_t node_idx = nodes.size();
+            nodes.push_back(FlatOctreeNode());
+            float target_depth = get_target_depth(position, node_item.pos + node_item.size * 0.5f, radius, max_depth);
+            uint32_t depth = node_item.key.lod;
+
+            bool is_leaf = (depth >= max_depth) || (depth >= target_depth && depth >= min_depth);
+            // for (int i = 0; i < node_item.debug_depth; i++)
+            //     printf(" ");
+            // printf(" t:%f %i", target_depth, is_leaf);
+            // print_vec("node", node_item.key.raw);
+
+            if (is_leaf)
+            {
+                m_leaves_curr.push_back(node_item.key.raw);
+                continue;
+            }
+
+            float child_size = node_item.size * 0.5f;
+
+            bool has_children = false;
+            for (int z = 0; z < 2; z++)
+                for (int y = 0; y < 2; y++)
+                    for (int x = 0; x < 2; x++)
+                    {
+                        glm::vec3 child_pos = node_item.pos + child_size * glm::vec3{x, y, z};
+                        ChunkKey child_key = node_item.key.get_octree_child(x, y, z);
+
+                        has_children = true;
+                        StackItem child_item;
+                        child_item.size = child_size;
+                        child_item.pos = child_pos;
+                        child_item.key = child_key;
+                        child_item.parent_spatial_idx = x + 2 * y + 4 * z;
+                        child_item.parent_idx = node_idx;
+                        child_item.debug_depth = node_item.debug_depth + 1;
+                        stack.push(child_item);
+                    }
+
+            if (node_item.parent_idx != invalid_id)
+            {
+                nodes[node_item.parent_idx].is_leaf = false;
+                nodes[node_item.parent_idx].children[node_item.parent_spatial_idx] = node_idx;
             }
         }
         compute_leaves_delta();
     }
 
+    template <typename T>
+    bool has_duplicates(const std::vector<T> &vec)
+    {
+        return std::unordered_set<T>(vec.begin(), vec.end()).size() != vec.size();
+    }
     void generate(uint32_t min_depth, uint32_t max_depth, float circle_x, float circle_y, float circle_z, float radius, float further_radius, float intensity)
     {
         nodes.clear();
@@ -312,7 +403,7 @@ public:
             float depth;
         };
         std::stack<StackItem> stack;
-        StackItem root_item = { invalid_id, 0, glm::ivec4(0), origin_x, origin_y, origin_z, world_scale, 0};
+        StackItem root_item = {invalid_id, 0, glm::ivec4(0), origin.x, origin.y, origin.z, world_scale, 0};
         stack.push(root_item);
 
         while (!stack.empty())
@@ -330,7 +421,7 @@ public:
             }
 
             float child_size = parent.size * 0.5f;
-            
+
             bool has_children = false;
             for (int z = 0; z < 2; z++)
                 for (int y = 0; y < 2; y++)
@@ -373,8 +464,6 @@ public:
                             target_depth = t * (float)max_depth;
                         }
 
-
-
                         if (parent.depth < target_depth || parent.depth < min_depth)
                         {
 
@@ -401,9 +490,8 @@ public:
                 nodes[parent.parent_idx].is_leaf = false;
                 nodes[parent.parent_idx].children[parent.parent_spatial_idx] = node_idx;
             }
-
         }
-        
+
         compute_leaves_delta();
     }
 
@@ -418,7 +506,7 @@ public:
         };
 
         std::stack<StackItem> stack;
-        stack.push({ 0, origin_x, origin_y, origin_z, world_scale, glm::ivec4(0) });
+        stack.push({0, origin.x, origin.y, origin.z, world_scale, glm::ivec4(0)});
         int drawCount = 0;
         ChunkKey root_leaf;
         root_leaf.raw = glm::ivec4(0);
@@ -431,7 +519,7 @@ public:
                 continue;
 
             if (!include_leaves)
-                fn_for_each({ item.leaf });
+                fn_for_each({item.leaf});
             float cs = item.s * 0.5f;
             for (int z = 0; z < 2; z++)
                 for (int y = 0; y < 2; y++)
@@ -455,21 +543,21 @@ public:
                         drawCount++;
                         uint64_t child_index = nodes[item.index].children[x + 2 * y + 4 * z];
 
-                        stack.push({ child_index, cx, cy, cz, cs, leaf.raw });
+                        stack.push({child_index, cx, cy, cz, cs, leaf.raw});
                     }
         }
         return drawCount;
     }
 
     template <typename Func>
-    void for_each_chunk_created(Func&& fn_for_each)
+    void for_each_chunk_created(Func &&fn_for_each)
     {
         for (ChunkKey leaf : m_leaves_created)
             fn_for_each(leaf);
     }
 
     template <typename Func>
-    void for_each_chunk_created(Func&& fn_for_each, LeavesVector::iterator& it, int iteration_count)
+    void for_each_chunk_created(Func &&fn_for_each, LeavesVector::iterator &it, int iteration_count)
     {
         while (it != m_leaves_created.end() && iteration_count > 0)
         {
@@ -481,21 +569,67 @@ public:
     }
 
     template <typename Func>
-    void for_each_chunk(Func&& fn_for_each)
+    void for_each_chunk(Func &&fn_for_each)
     {
         for (ChunkKey leaf : m_leaves_curr)
             fn_for_each(leaf);
     }
 
     template <typename Func>
-    void for_each_chunk_removed(Func&& fn_for_each)
+    void for_each_chunk_removed(Func &&fn_for_each)
     {
         for (ChunkKey leaf : m_leaves_removed)
         {
             fn_for_each(leaf);
         }
     }
+
 private:
+    template <typename Func>
+    uint64_t for_each_leaf_in_branch(const std::vector<FlatOctreeNode> &tree, ChunkKey key, size_t index, Func &&fn_for_each)
+    {
+        uint64_t count = 0;
+        if (index == invalid_id || index >= tree.size())
+        {
+            fn_for_each(key);
+            count++;
+            return count;
+        }
+
+        struct StackItem
+        {
+            size_t index;
+            ChunkKey key;
+        };
+        std::stack<StackItem> stack;
+        stack.push({index, key});
+
+        while (!stack.empty())
+        {
+            StackItem item = stack.top();
+            stack.pop();
+            const FlatOctreeNode &node = tree[item.index];
+
+            for (int z = 0; z < 2; z++)
+                for (int y = 0; y < 2; y++)
+                    for (int x = 0; x < 2; x++)
+                    {
+                        int i = x + 2 * y + 4 * z;
+                        size_t child_index = node.children[i];
+
+                        if (child_index == invalid_id)
+                        {
+                            fn_for_each(item.key.get_octree_child(x, y, z));
+                            count++;
+                            continue;
+                        }
+
+                        stack.push({child_index,
+                                    item.key.get_octree_child(x, y, z)});
+                    }
+        }
+        return count;
+    }
 
     void compute_leaves_delta()
     {
@@ -537,12 +671,19 @@ private:
             m_leaves_removed.push_back(*it_prev);
             ++it_prev;
         }
-
     }
+
+    float get_target_depth(const glm::vec3 &v0, const glm::vec3 &v1, float radius, uint32_t max_depth)
+    {
+        float dist = glm::distance(v0, v1);
+        float dist_ratio = glm::max(1.0f, dist / radius);
+        float target_depth = max_depth - glm::log2(dist_ratio);
+        return glm::max(0.f, target_depth);
+    }
+
     LeavesVector m_leaves_created;
     LeavesVector m_leaves_removed;
 
     LeavesVector m_leaves_curr;
     LeavesVector m_leaves_prev;
-
 };

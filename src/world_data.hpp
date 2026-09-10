@@ -23,16 +23,20 @@ struct ChunkKey
 	ChunkKey(glm::ivec4 v)
 		: raw(v) {}
 
-	bool operator<(const ChunkKey& rhs) const
+	bool operator<(const ChunkKey &rhs) const
 	{
-		if (lod != rhs.lod) return lod > rhs.lod;
-		if (x != rhs.x) return x < rhs.x;
-		if (y != rhs.y) return y < rhs.y;
-		if (z != rhs.z) return z < rhs.z;
+		if (lod != rhs.lod)
+			return lod > rhs.lod;
+		if (x != rhs.x)
+			return x < rhs.x;
+		if (y != rhs.y)
+			return y < rhs.y;
+		if (z != rhs.z)
+			return z < rhs.z;
 		return false;
 	}
 
-	inline ChunkKey get_octree_child(int cx, int cy, int cz)
+	inline ChunkKey get_octree_child(int cx, int cy, int cz) const
 	{
 		ChunkKey child;
 		child.lod = lod + 1;
@@ -43,7 +47,8 @@ struct ChunkKey
 	}
 };
 
-inline bool operator==(const ChunkKey& lhs, const ChunkKey& rhs) {
+inline bool operator==(const ChunkKey &lhs, const ChunkKey &rhs)
+{
 	return lhs.raw == rhs.raw;
 }
 
@@ -52,7 +57,7 @@ namespace std
 	template <>
 	struct hash<ChunkKey>
 	{
-		std::size_t operator()(const ChunkKey& key) const noexcept
+		std::size_t operator()(const ChunkKey &key) const noexcept
 		{
 			return std::hash<glm::ivec4>{}(key.raw_vec);
 		}
@@ -77,7 +82,7 @@ struct WorldData
 		return chunk_size(lod) / voxels_per_chunk_axis;
 	}
 
-	glm::vec3 chunk_origin(const ChunkKey& chunk_key) const
+	glm::vec3 chunk_origin(const ChunkKey &chunk_key) const
 	{
 		return chunk_size(chunk_key.lod) * glm::vec3(chunk_key.coord);
 	}
@@ -85,5 +90,5 @@ struct WorldData
 	int voxels_per_chunk_axis;
 	float update_distance;
 	size_t world_vram;
-	ThreadPool* thread_pool;
+	ThreadPool *thread_pool;
 };

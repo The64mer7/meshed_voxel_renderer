@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.25)
-project(meshed_voxel_renderer LANGUAGES CXX)
 
 if(CMAKE_BUILD_TYPE MATCHES Release)
     

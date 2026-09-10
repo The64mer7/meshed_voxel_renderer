@@ -15,12 +15,12 @@ void Application::init()
     player.position = glm::vec3(0);
     player.direction = glm::vec3(0);
     player.velocity = glm::vec3(0);
-    
+
     glCreateVertexArrays(1, &dummy_vao);
     {
         int w, h, ch;
         stbi_set_flip_vertically_on_load(true);
-        void* atlas_data = stbi_load("resources/textures/atlas.png", &w, &h, &ch, 4);
+        void *atlas_data = stbi_load("resources/textures/atlas.png", &w, &h, &ch, 4);
         if (!atlas_data)
             return;
 
@@ -42,7 +42,6 @@ void Application::init()
     world_data.world_vram = GB(2);
     world_data.thread_pool = &thread_pool;
 
-
     clipmap_settings.radius = 32;
     clipmap_settings.min_depth = 4;
     clipmap_settings.max_depth = 19;
@@ -51,8 +50,8 @@ void Application::init()
     world.create(world_data, clipmap_settings);
 
     {
-        camera_settings.position = { 0,0,0 };
-        camera_settings.direction = glm::normalize(glm::vec3( 1,0,1 ));
+        camera_settings.position = {0, 0, 0};
+        camera_settings.direction = glm::normalize(glm::vec3(1, 0, 1));
         camera_settings.nearPlane = world_data.world_size() * 2;
         camera_settings.farPlane = 0.125f;
         camera_settings.fov_degrees = 45.f;
@@ -93,7 +92,6 @@ void Application::handle_input()
     if (input.get_key(GLFW_KEY_D))
         camera.Translate(-speed * glm::normalize(glm::cross(WorldDirection::Up, camera.GetForwardVector())));
 
-
     if (input.get_key(GLFW_KEY_Z))
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     if (input.get_key(GLFW_KEY_Y))
@@ -119,7 +117,7 @@ void Application::handle_input()
 
     float sensitivity = 0.01f;
 
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO &io = ImGui::GetIO();
     if (!io.WantCaptureMouse)
     {
         if (input.get_button(GLFW_MOUSE_BUTTON_RIGHT))
@@ -158,7 +156,7 @@ void Application::handle_input()
                 static structure_id structure_handle = UINT64_MAX;
                 if (!loaded)
                 {
-                    static VoxStructure* structure = new VoxStructure();
+                    static VoxStructure *structure = new VoxStructure();
                     structure->load("resources/meshes/Willow_single_color.vox", glm::vec3(0.f));
                     structure_handle = world.create_structure(structure);
                     loaded = true;
@@ -168,7 +166,7 @@ void Application::handle_input()
             if (selected_structure == Structure_SPHERE || selected_structure == Structure_SPHERE_REMOVE)
             {
                 static structure_id structure_handle = UINT64_MAX;
-                SphereStructure* structure = new SphereStructure();
+                SphereStructure *structure = new SphereStructure();
                 structure->position = glm::vec3(0.f);
                 structure->radius = sphere_radius;
                 structure->radius_sq = sphere_radius * sphere_radius;
@@ -176,8 +174,6 @@ void Application::handle_input()
                 structure_handle = world.create_structure(structure);
                 world.place_structure(structure_handle, camera_world_pos() + ray_world * distance);
             }
-
-
         }
     }
 
@@ -192,7 +188,7 @@ void Application::handle_input()
 int Application::frame_update()
 {
     handle_input();
-    
+
     world.update(camera_world_pos(), glm::radians(camera_settings.fov_degrees));
 
     frame_index++;
@@ -202,18 +198,16 @@ int Application::frame_update()
 int Application::frame_render()
 {
     glClearColor(0.7f, 0.7f, 0.9f, 1.f);
-    ChunkKey key;
-    world.render({ 0.f,0.f,0.f }, camera, camera_chunk_coord, camera_chunk_size, key);
+    world.render({0.f, 0.f, 0.f}, camera, camera_chunk_coord, camera_chunk_size);
 
     return 0;
 }
 
-inline static const char* structure_names[Application::Structure_NONE] = 
-{
-    "Vox model",
-    "Sphere",
-    "Sphere Remove"
-};
+inline static const char *structure_names[Application::Structure_NONE] =
+    {
+        "Vox model",
+        "Sphere",
+        "Sphere Remove"};
 
 int Application::frame_render_ui()
 {
@@ -221,7 +215,7 @@ int Application::frame_render_ui()
     {
         if (ImGui::Begin("Debug"))
         {
-            ImGui::SliderInt("structure_type", &selected_structure, 0, Structure_NONE-1);
+            ImGui::SliderInt("structure_type", &selected_structure, 0, Structure_NONE - 1);
             if (selected_structure == Structure_SPHERE || selected_structure == Structure_SPHERE_REMOVE)
             {
                 if (selected_structure == Structure_SPHERE_REMOVE)
@@ -234,13 +228,13 @@ int Application::frame_render_ui()
             ImGui::Checkbox("display_controls", &display_controls);
             if (display_controls)
             {
-                ImGui::Text(    "RMB Hold - Rotate camera\n"
-                                "WASD - Camera movement\n"
-                                "Space - Move camera up\n"
-                                "Left Ctrl - Move camera down\n"
-                                "F - increase camera speed\n"
-                                "R - decrease camera speed\n"
-                                "LMB - Place structure at cursor position\n");
+                ImGui::Text("RMB Hold - Rotate camera\n"
+                            "WASD - Camera movement\n"
+                            "Space - Move camera up\n"
+                            "Left Ctrl - Move camera down\n"
+                            "F - increase camera speed\n"
+                            "R - decrease camera speed\n"
+                            "LMB - Place structure at cursor position\n");
             }
             static bool display_allocator = false;
             ImGui::Checkbox("display_allocator", &display_allocator);
@@ -293,29 +287,30 @@ int Application::frame_render_ui()
                 world.debug_ui();
 
                 bool naive = g_mesh_naive.load();
-                if (ImGui::Button(naive ? "set greedy" : "set naive", ImVec2{ 64,24 }))
+                if (ImGui::Button(naive ? "set greedy" : "set naive", ImVec2{64, 24}))
                 {
                     g_mesh_naive.store(!naive);
                     world.regenerate_chunks(camera.GetPosition() + glm::vec3(camera_chunk_coord) * camera_chunk_size);
                 }
             }
+            ImGui::Checkbox("display_chunks_aabbs", &world.display_chunks);
         }
         ImGui::End();
     }
     return 0;
 }
 
-int Application::update_trampoline(void* user_data)
+int Application::update_trampoline(void *user_data)
 {
-    return reinterpret_cast<Application*>(user_data)->frame_update();
+    return reinterpret_cast<Application *>(user_data)->frame_update();
 }
 
-int Application::render_trampoline(void* user_data)
+int Application::render_trampoline(void *user_data)
 {
-    return reinterpret_cast<Application*>(user_data)->frame_render();
+    return reinterpret_cast<Application *>(user_data)->frame_render();
 }
 
-int Application::render_ui_trampoline(void* user_data)
+int Application::render_ui_trampoline(void *user_data)
 {
-    return reinterpret_cast<Application*>(user_data)->frame_render_ui();
+    return reinterpret_cast<Application *>(user_data)->frame_render_ui();
 }
