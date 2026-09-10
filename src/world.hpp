@@ -121,6 +121,22 @@ struct UpdateGreedyMeshTask
                     LOG("OUT OF MEMORY (tried to alloc {}B)", size_bytes);
                 }
             }
+            else if (remesh)
+            {
+                DrawArraysIndirectCommand cmd;
+                cmd.baseInstance = 0;
+                cmd.first = 0;
+                cmd.count = 0;
+                cmd.instanceCount = 1;
+
+                ChunkMesherTaskData chunk_data;
+                chunk_data.key = key;
+                chunk_data.aabb = 0;
+                chunk_data.cmd = cmd;
+                chunk_data.remesh = remesh;
+
+                chunks_to_commit->Enqueue(chunk_data);
+            }
         }
         tasks_counter->fetch_sub(1);
     }
