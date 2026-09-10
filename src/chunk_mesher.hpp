@@ -10,7 +10,6 @@
 #include "edit_octree.h"
 #include "terrain_noise.hpp"
 #include "world_data.hpp"
-#include "edit_octree.h"
 
 #include <xsimd/xsimd.hpp>
 
