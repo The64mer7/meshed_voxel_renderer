@@ -15,7 +15,7 @@
 struct ChunkMesherTaskData
 {
     DrawArraysIndirectCommand cmd;
-    uint32_t aabb;
+    packed_aabb64 aabb;
     ChunkKey key;
     bool remesh;
 };
@@ -152,8 +152,8 @@ private:
                 cmd.instanceCount = 1;
 
                 chunk_data.key = key;
-                chunk_data.aabb = make_aabb(glm::ivec4(0),
-                                            glm::ivec4(64)); // FIX: incorrect
+                chunk_data.aabb = voxel_data->packed_aabb;
+
                 chunk_data.cmd = cmd;
                 chunk_data.remesh = remesh;
 

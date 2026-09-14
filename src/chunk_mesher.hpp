@@ -39,10 +39,34 @@ enum Axis
     Z
 };
 
-inline uint32_t make_aabb(glm::ivec3 min, glm::ivec3 max)
+using packed_aabb32 = uint32_t;
+inline packed_aabb32 make_aabb(glm::ivec3 min, glm::ivec3 max)
 {
     return (min.x << 0) | (min.y << 5) | (min.z << 10) | (max.x << 15) | (max.y << 20) |
            (max.z << 25);
+}
+
+using packed_aabb64 = uint64_t;
+inline packed_aabb64 make_aabb_64(glm::ivec3 min, glm::ivec3 max)
+{
+    uint64_t packed = 0;
+    packed |= (uint64_t)(min.x & 0x3f) << 0;
+    packed |= (uint64_t)(min.y & 0x3f) << 6;
+    packed |= (uint64_t)(min.z & 0x3f) << 12;
+    packed |= (uint64_t)(max.x & 0x3f) << 18;
+    packed |= (uint64_t)(max.y & 0x3f) << 24;
+    packed |= (uint64_t)(max.z & 0x3f) << 30;
+    return packed;
+}
+
+inline void unpack_aabb64(packed_aabb64 packed, glm::ivec3* min, glm::ivec3* max)
+{
+    min->x = (packed >> 0) & 0x3f;
+    min->y = (packed >> 6) & 0x3f;
+    min->z = (packed >> 12) & 0x3f;
+    max->x = (packed >> 18) & 0x3f;
+    max->y = (packed >> 24) & 0x3f;
+    max->z = (packed >> 30) & 0x3f;
 }
 
 inline uint32_t pack_face(uint32_t x, uint32_t y, uint32_t z, uint32_t dir, uint32_t material)
@@ -111,6 +135,7 @@ struct VoxelData
     float density_map[64][64][64];
     uint16_t material_map[64][64][64];
     uint64_t solid_mask[64][64];
+    packed_aabb64 packed_aabb;
     union
     {
         uint64_t face_mask_3d[64][64];
@@ -137,9 +162,9 @@ struct VoxelData
 
         float var_f = (variation > 3 ? 1.0f : 0.0f);
 
-        float r_f = 3.0f + t * 3.0f + var_f * 0.5f;
-        float g_f = 11.0f - t * 3.0f + var_f;
-        float b_f = 5.0f + t * 6.0f + var_f;
+        float r_f = 3.0f + t * 5.0f + var_f * 0.5f;
+        float g_f = 11.0f - t * 4.0f + var_f;
+        float b_f = 5.0f + t * 2.0f + var_f;
 
         uint16_t r = uint16_t(r_f > 15.0f ? 15.0f : r_f);
         uint16_t g = uint16_t(g_f > 15.0f ? 15.0f : g_f);
@@ -301,13 +326,14 @@ struct VoxelData
                         aabb_min.x = glm::min(aabb_min.x, x - 1);
                         aabb_min.y = glm::min(aabb_min.y, y - 1);
                         aabb_min.z = glm::min(aabb_min.z, z - 1);
-                        aabb_max.x = glm::max(aabb_max.x, x - 1);
-                        aabb_max.y = glm::max(aabb_max.y, y - 1);
-                        aabb_max.z = glm::max(aabb_max.z, z - 1);
+                        aabb_max.x = glm::max(aabb_max.x, x);
+                        aabb_max.y = glm::max(aabb_max.y, y);
+                        aabb_max.z = glm::max(aabb_max.z, z);
                     }
                 }
             }
 
+        packed_aabb = make_aabb_64(aabb_min, aabb_max);
         return true;
     }
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
+
 struct aabb3d
 {
     glm::vec3 min;

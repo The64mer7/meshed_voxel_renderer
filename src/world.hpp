@@ -96,7 +96,7 @@ private:
 
     // TODO: Combine parallel sparse sets
     GpuBuffer m_chunk_aabbs_buffer;
-    SparseSet<ChunkKey, uint32_t> m_chunk_aabbs;
+    SparseSet<ChunkKey, packed_aabb64> m_chunk_aabbs;
 
     GpuBuffer m_chunk_draw_cmds_buffer;
     SparseSet<ChunkKey, DrawArraysIndirectCommand> m_chunk_draw_cmds;

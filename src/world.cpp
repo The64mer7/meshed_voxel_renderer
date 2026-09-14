@@ -308,7 +308,7 @@ void World::render(const glm::vec3& world_origin, const FirstPersonCamera& camer
             for (int i = 0; i < m_chunk_aabbs.get_keys().size(); i++)
             {
                 ChunkKey key = m_chunk_aabbs.get_keys()[i];
-                uint32_t packed_aabb = m_chunk_aabbs.get_values()[i];
+                packed_aabb64 packed_aabb = m_chunk_aabbs.get_values()[i];
                 float chunk_size = m_data.chunk_size(key.lod);
                 float voxel_size = m_data.voxel_size(key.lod);
 
@@ -316,8 +316,11 @@ void World::render(const glm::vec3& world_origin, const FirstPersonCamera& camer
                 aabb_origin = key.coord;
                 aabb_origin *= chunk_size;
 
-                m_sp.uniform3f("u_cube_min", aabb_origin);
-                m_sp.uniform3f("u_cube_size", glm::vec3(chunk_size));
+                glm::ivec3 min, max;
+                unpack_aabb64(packed_aabb, &min, &max);
+
+                m_sp.uniform3f("u_cube_min", aabb_origin + glm::vec3(min) * voxel_size);
+                m_sp.uniform3f("u_cube_size", voxel_size * glm::vec3(max - min));
                 glDrawArrays(GL_LINES, 0, 24);
             }
         }
