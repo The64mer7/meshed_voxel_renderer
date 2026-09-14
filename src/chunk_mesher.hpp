@@ -1,5 +1,7 @@
 #pragma once
 #include <condition_variable>
+
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/bit.hpp>
 #include <glm/gtx/hash.hpp>
 #include <glm/gtx/vec_swizzle.hpp>

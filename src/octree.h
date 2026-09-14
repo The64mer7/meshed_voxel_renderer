@@ -442,22 +442,10 @@ public:
                 nodes[node_item.parent_idx].children[node_item.parent_spatial_idx] = node_idx;
             }
         }
-        PROFILER_END(tree_gen);
         if (ancestor_delta.created.end != ancestor_delta.created.begin)
             m_chunk_deltas.push_back(ancestor_delta);
-        if (m_chunk_deltas.size() > 0)
-        {
-            LOG("deltas {} C: {} R: {}", m_chunk_deltas.size(), m_leaves_created.size(),
-                m_leaves_removed.size());
 
-            for (size_t i = 0; i < m_chunk_deltas.size(); i++)
-            {
-                if (m_chunk_deltas[i].created.size() == 0)
-                    LOG("delta C{} is empty", i);
-                if (m_chunk_deltas[i].removed.size() == 0)
-                    LOG("delta R{} is empty", i);
-            }
-        }
+        PROFILER_END(tree_gen);
         PROFILER_RESET(tree_gen);
     }
 

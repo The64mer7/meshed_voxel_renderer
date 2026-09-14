@@ -2,11 +2,13 @@
 #include <format>
 #include <functional>
 #include <glm/glm.hpp>
+#include <iomanip>
 #include <iostream>
 #include <stack>
 #include <vector>
 
 #include "aabb.hpp"
+#include "sparse_set.hpp"
 #include "tree_node.h"
 #include "vox_loader.h"
 #include "vox_parser.h"

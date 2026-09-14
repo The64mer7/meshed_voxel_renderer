@@ -25,7 +25,8 @@ static const ogt_vox_scene* load_vox_scene(const char* filename, uint32_t scene_
     fclose(fp);
 
     // construct the scene from the buffer
-    const ogt_vox_scene* scene = ogt_vox_read_scene_with_flags(buffer, buffer_size, scene_read_flags);
+    const ogt_vox_scene* scene = ogt_vox_read_scene_with_flags(buffer, buffer_size,
+                                                               scene_read_flags);
 
     // the buffer can be safely deleted once the scene is instantiated.
     delete[] buffer;
