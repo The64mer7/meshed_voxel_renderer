@@ -15,6 +15,12 @@
 #include "tree_node.h"
 #include "world_data.hpp"
 
+#include <algorithm>
+#include <imgui.h>
+#include <queue>
+#include <unordered_set>
+#include <vector>
+
 struct OctreeClipmapGenerateSettings
 {
     uint32_t min_depth;
@@ -32,15 +38,32 @@ struct FlatOctreeNode
     bool is_chunk = true;
 };
 
+struct Range
+{
+    uint64_t begin;
+    uint64_t end;
+    uint64_t size() { return end - begin; }
+};
+
+struct ChunkDelta
+{
+    Range removed;
+    Range created;
+
+    bool debug_ancestor = false;
+};
+
 class OctreeClipmap
 {
 public:
     using LeavesSet = std::unordered_set<ChunkKeyRaw>;
     using LeavesVector = std::vector<ChunkKey>;
+    using DeltasVector = std::vector<ChunkDelta>;
 
     LeavesVector& get_leaves() { return m_leaves_curr; }
 
     LeavesVector& get_leaves_created() { return m_leaves_created; }
+    LeavesVector& get_leaves_removed() { return m_leaves_removed; }
 
     std::vector<FlatOctreeNode> nodes;
     std::vector<FlatOctreeNode> prev_nodes;
@@ -259,6 +282,8 @@ public:
         compute_leaves_delta();
     }
 
+    const DeltasVector& get_chunk_deltas() { return m_chunk_deltas; }
+
     PROFILER_DECLARE(tree_gen);
     void generate_by_perspective(uint32_t min_depth, uint32_t max_depth, const glm::vec3& position,
                                  float fov, float radius)
@@ -266,6 +291,7 @@ public:
         PROFILER_BEGIN(tree_gen);
         prev_nodes = std::move(nodes);
         nodes.clear();
+        m_chunk_deltas.clear();
         m_leaves_created.clear();
         m_leaves_removed.clear();
 
@@ -280,6 +306,7 @@ public:
 
             uint64_t prev_tree_node_idx;
             uint64_t prev_tree_parent_node_idx;
+            bool is_exit = false;
         };
         std::stack<StackItem> stack;
 
@@ -299,14 +326,26 @@ public:
 
         auto remove_chunks_in_branch = [this](uint64_t index, const ChunkKey& key)
         {
-            for_each_chunk_in_branch(prev_nodes, key, index, [this](const ChunkKey& key)
-                                     { m_leaves_removed.push_back(key); });
+            return for_each_chunk_in_branch(prev_nodes, key, index, [this](const ChunkKey& key)
+                                            { m_leaves_removed.push_back(key); });
         };
 
+        ChunkDelta ancestor_delta = {};
         while (!stack.empty())
         {
             StackItem node_item = stack.top();
             stack.pop();
+
+            if (node_item.is_exit)
+            {
+                if (ancestor_delta.created.begin !=
+                    ancestor_delta.created.end) // prob not even needed
+                {
+                    m_chunk_deltas.push_back(ancestor_delta);
+                    ancestor_delta = {};
+                }
+                continue;
+            }
 
             uint64_t node_idx = nodes.size();
             uint64_t prev_node_idx = node_item.prev_tree_node_idx;
@@ -322,6 +361,7 @@ public:
             bool prev_is_parent_valid = prev_parent_node_idx != invalid_id;
             bool prev_is_node = prev_node_idx != invalid_id;
             bool prev_is_leaf = !prev_is_node && prev_is_parent_valid;
+            bool deeper_than_prev = !prev_is_parent_valid;
 
             if (is_leaf)
             {
@@ -330,21 +370,51 @@ public:
                     continue;
                 }
 
+                ChunkDelta delta = {};
                 if (prev_is_node)
                 {
-                    remove_chunks_in_branch(prev_node_idx, node_item.key);
+                    delta.removed.begin = m_leaves_removed.size();
+                    uint64_t rem_count = remove_chunks_in_branch(prev_node_idx, node_item.key);
+                    delta.removed.end = m_leaves_removed.size();
                 }
+
+                if (deeper_than_prev)
+                {
+                    bool is_empty = ancestor_delta.created.begin == ancestor_delta.created.end;
+                    if (is_empty)
+                    {
+                        ancestor_delta.created.begin = m_leaves_created.size();
+                    }
+                }
+                if (!deeper_than_prev)
+                    delta.created.begin = m_leaves_created.size();
+
                 m_leaves_created.push_back(node_item.key);
+
+                if (!deeper_than_prev)
+                    delta.created.end = m_leaves_created.size();
+
+                if (deeper_than_prev)
+                    ancestor_delta.created.end = m_leaves_created.size();
+
+                if (prev_is_node)
+                    m_chunk_deltas.push_back(delta);
+
                 continue;
             }
 
             if (prev_is_leaf)
             {
+                ancestor_delta.removed.begin = m_leaves_removed.size();
                 m_leaves_removed.push_back(node_item.key.raw);
+                ancestor_delta.removed.end = m_leaves_removed.size();
+
+                StackItem exit;
+                exit.is_exit = true;
+                stack.push(exit);
             }
 
             float child_size = node_item.size * 0.5f;
-
             for (int z = 0; z < 2; z++)
                 for (int y = 0; y < 2; y++)
                     for (int x = 0; x < 2; x++)
@@ -373,10 +443,104 @@ public:
             }
         }
         PROFILER_END(tree_gen);
-        // std::printf("gen %fms\n", 1000 * PROFILER_GET(tree_gen));
-        // std::printf("crt: %i\n", m_leaves_created.size());
-        // std::printf("rem: %i\n", m_leaves_removed.size());
+        if (ancestor_delta.created.end != ancestor_delta.created.begin)
+            m_chunk_deltas.push_back(ancestor_delta);
+        if (m_chunk_deltas.size() > 0)
+        {
+            LOG("deltas {} C: {} R: {}", m_chunk_deltas.size(), m_leaves_created.size(),
+                m_leaves_removed.size());
+
+            for (size_t i = 0; i < m_chunk_deltas.size(); i++)
+            {
+                if (m_chunk_deltas[i].created.size() == 0)
+                    LOG("delta C{} is empty", i);
+                if (m_chunk_deltas[i].removed.size() == 0)
+                    LOG("delta R{} is empty", i);
+            }
+        }
         PROFILER_RESET(tree_gen);
+    }
+
+    bool validate_chunk_deltas()
+    {
+        size_t total_created_referenced = 0;
+        size_t total_removed_referenced = 0;
+
+        std::vector<bool> created_covered(m_leaves_created.size(), false);
+        std::vector<bool> removed_covered(m_leaves_removed.size(), false);
+
+        for (size_t i = 0; i < m_chunk_deltas.size(); ++i)
+        {
+            const auto& delta = m_chunk_deltas[i];
+
+            if (delta.created.begin > delta.created.end)
+            {
+                std::cerr << "Error: Delta " << i
+                          << " has invalid 'created' range (begin > end).\n";
+            }
+            if (delta.created.end > m_leaves_created.size())
+            {
+                std::cerr << "Error: Delta " << i
+                          << " 'created' range exceeds m_leaves_created size.\n";
+            }
+
+            if (delta.removed.begin > delta.removed.end)
+            {
+                std::cerr << "Error: Delta " << i
+                          << " has invalid 'removed' range (begin > end).\n";
+            }
+            if (delta.removed.end > m_leaves_removed.size())
+            {
+                std::cerr << "Error: Delta " << i
+                          << " 'removed' range exceeds m_leaves_removed size.\n";
+            }
+
+            for (size_t idx = delta.created.begin; idx < delta.created.end; ++idx)
+            {
+                if (created_covered[idx])
+                {
+                    std::cerr << "Error: m_leaves_created index " << idx
+                              << " is referenced by multiple deltas.\n";
+                    print_vec("vec:", m_leaves_created[idx].raw_vec);
+                }
+                created_covered[idx] = true;
+            }
+
+            for (size_t idx = delta.removed.begin; idx < delta.removed.end; ++idx)
+            {
+                if (removed_covered[idx])
+                {
+                    std::cerr << "Error: m_leaves_removed index " << idx
+                              << " is referenced by multiple deltas.\n";
+                    print_vec("vec:", m_leaves_removed[idx].raw_vec);
+                }
+                removed_covered[idx] = true;
+            }
+        }
+
+        for (size_t idx = 0; idx < created_covered.size(); ++idx)
+        {
+            if (!created_covered[idx])
+            {
+                std::cerr << "Warning/Error: m_leaves_created index " << idx
+                          << " was never referenced by any delta.\n";
+                print_vec("vec:", m_leaves_created[idx].raw_vec);
+            }
+        }
+
+        for (size_t idx = 0; idx < removed_covered.size(); ++idx)
+        {
+            if (!removed_covered[idx])
+            {
+                std::cerr << "Warning/Error: m_leaves_removed index " << idx
+                          << " was never referenced by any delta.\n";
+                print_vec("vec:", m_leaves_removed[idx].raw_vec);
+                if (idx != m_leaves_removed.size() - 1)
+                    LOG("ERR");
+            }
+        }
+
+        return true;
     }
 
     void generate(uint32_t min_depth, uint32_t max_depth, float circle_x, float circle_y,
@@ -730,6 +894,8 @@ private:
         float target_depth = max_depth - glm::log2(dist_ratio);
         return glm::max(0.f, target_depth);
     }
+
+    std::vector<ChunkDelta> m_chunk_deltas;
 
     LeavesVector m_leaves_created;
     LeavesVector m_leaves_removed;

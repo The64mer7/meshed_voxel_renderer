@@ -68,62 +68,140 @@ bool World::erase_chunk(const ChunkKey& key)
     offset_t offset_bytes = (cmd->first * sizeof(GreedyFace)) / VERTICES_PER_FACE;
     size_t size_bytes = (cmd->count * sizeof(GreedyFace)) / VERTICES_PER_FACE;
 
-    m_world_buffer_manager.free(offset_bytes, size_bytes);
+    m_deferred_frees.push({offset_bytes, size_bytes, m_current_frame});
 
     m_chunk_aabbs.remove(key.raw);
     m_chunk_draw_cmds.remove(key.raw);
 
     return true;
+    /*
+    DrawArraysIndirectCommand* cmd = m_chunk_draw_cmds.get(key.raw);
+    if (!cmd)
+        return false;
+
+    offset_t offset_bytes = (cmd->first * sizeof(GreedyFace)) / VERTICES_PER_FACE;
+    size_t size_bytes = (cmd->count * sizeof(GreedyFace)) / VERTICES_PER_FACE;
+
+    m_world_buffer_manager.free(offset_bytes, size_bytes);
+
+    m_chunk_aabbs.remove(key.raw);
+    m_chunk_draw_cmds.remove(key.raw);
+
+    return true;*/
 }
 
-void World::submit_tasks(OctreeClipmap::LeavesVector* chunks, bool remesh,
+void World::submit_tasks(OctreeClipmap::LeavesVector* chunks,
+                         OctreeClipmap::LeavesVector* chunks_removed,
+                         const OctreeClipmap::DeltasVector* deltas, bool remesh,
                          std::atomic_uint32_t* counter)
 {
-    uint32_t batch_size = std::thread::hardware_concurrency() * 4;
-    uint32_t batch_count = (chunks->size() + batch_size - 1) / batch_size;
+    uint32_t batch_size = std::thread::hardware_concurrency();
+    uint32_t batch_count = (deltas->size() + batch_size - 1) / batch_size;
 
     if (batch_count > 0)
     {
         UpdateGreedyMeshTask task;
         task.gpu_buffer_mapping = &m_world_buffer_mapping;
         task.chunks = chunks;
+        task.chunks_removed = chunks_removed;
         task.manager = &m_world_buffer_manager;
         task.voxels_per_axis = m_data.voxels_per_chunk_axis;
         task.world_data = &m_data;
         task.edits = &m_edits;
         task.tasks_counter = counter;
         task.chunks_to_commit = &m_chunks_to_commit;
+        task.chunks_to_commit_vec = &m_chunks_to_commit_vec;
         task.remesh = remesh;
+        task.deltas = deltas;
+        task.deltas_to_commit = &m_deltas_to_commit;
+        task.terrain_storage = &m_terrain_storage;
 
         TaskGen generator;
 
+        m_chunks_to_commit_vec.resize(chunks->size());
         generator.task = task;
-        generator.chunks = chunks;
+        generator.data_count = deltas->size();
         generator.batch_size = batch_size;
 
+        if (batch_count > 0)
+        {
+            m_total_chunks_count = 0;
+            m_total_chunks_time_s = 0;
+            m_empty_chunks_count = 0;
+            m_nonempty_chunks_count = 0;
+        }
+
+        is_dispatched = true;
+
+        m_chunks_start_time = std::chrono::high_resolution_clock::now();
         m_tasks.submit_batch(*m_data.thread_pool, batch_count, counter, generator);
     }
 }
 
 void World::update(const glm::vec3& player_position, float fov)
 {
-    ChunkMesherTaskData data;
-    while (m_chunks_to_commit.TryDequeue(data))
+    // m_clipmap.for_each_chunk_removed([this](const ChunkKey& key) { erase_chunk(key); });
+
+    // ChunkMesherTaskData data;
+    // while (m_chunks_to_commit.TryDequeue(data))
+    // {
+    //     if (data.remesh)
+    //         erase_chunk(data.key);
+    //     if (data.cmd.count > 0)
+    //     {
+    //         m_chunk_aabbs.insert(data.key, data.aabb);
+    //         m_chunk_draw_cmds.insert(data.key, data.cmd);
+    //     }
+    // }
+    while (!m_deferred_frees.empty() && m_deferred_frees.front().timestamp <= m_current_frame - 3)
     {
-        if (data.remesh)
-            erase_chunk(data.key);
-        if (data.cmd.count > 0)
+        auto& item = m_deferred_frees.front();
+        m_world_buffer_manager.free(item.offset_bytes, item.size_bytes);
+        m_deferred_frees.pop();
+        m_chunks_dirty = true;
+    }
+    ChunkMesherDeltaTaskData data;
+    while (m_deltas_to_commit.TryDequeue(data))
+    {
+        auto& chunks = *data.chunks;
+        auto& chunks_removed = *data.chunks_removed;
+        for (int i = data.delta.removed.begin; i < data.delta.removed.end; i++)
         {
-            m_chunk_aabbs.insert(data.key, data.aabb);
-            m_chunk_draw_cmds.insert(data.key, data.cmd);
+            erase_chunk(chunks_removed[i]);
+            m_chunks_dirty = true;
+        }
+        for (int i = data.delta.created.begin; i < data.delta.created.end; i++)
+        {
+            ChunkMesherTaskData chunk = m_chunks_to_commit_vec[i];
+            ChunkKey key = chunk.key;
+            if (chunk.cmd.count > 0)
+            {
+                m_nonempty_chunks_count++;
+                m_chunk_aabbs.insert(key, chunk.aabb);
+                m_chunk_draw_cmds.insert(key, chunk.cmd);
+                m_chunks_dirty = true;
+            }
+            else
+                m_empty_chunks_count++;
         }
     }
-
+    m_current_frame++;
     if (!m_tasks.all_tasks_completed(&m_chunks_to_remesh_counter))
         return;
 
-    if (!m_tasks.all_tasks_completed(&m_chunks_to_mesh_counter)) // because we cant use m_edits
-                                                                 // while this is running
+    if (!m_tasks.all_tasks_completed(&m_chunks_to_mesh_counter))
+        return; // cant use m_edits while this is running
+
+    if (is_dispatched)
+    {
+        m_chunks_end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration<double>(m_chunks_end_time - m_chunks_start_time);
+        m_total_chunks_time_s += duration.count();
+        m_total_chunks_count = m_empty_chunks_count + m_nonempty_chunks_count;
+        is_dispatched = false;
+    }
+
+    if (m_deltas_to_commit.Size() > 0)
         return;
 
     if (!m_placed_instances.empty())
@@ -143,9 +221,24 @@ void World::update(const glm::vec3& player_position, float fov)
         bounds.max += instance.position;
 
         m_chunks_to_remesh.clear();
-        get_chunks_in_area(&m_chunks_to_remesh, bounds);
+        m_chunk_deltas.clear();
 
-        submit_tasks(&m_chunks_to_remesh, true, &m_chunks_to_remesh_counter);
+        m_clipmap.for_each_chunk_in_area(bounds,
+                                         [this](const ChunkKey& key)
+                                         {
+                                             ChunkDelta delta;
+                                             delta.created.begin = m_chunks_to_remesh.size();
+                                             delta.removed.begin = m_chunks_to_remesh.size();
+
+                                             m_chunks_to_remesh.push_back(key);
+
+                                             delta.created.end = m_chunks_to_remesh.size();
+                                             delta.removed.end = m_chunks_to_remesh.size();
+                                             m_chunk_deltas.push_back(delta);
+                                         });
+
+        submit_tasks(&m_chunks_to_remesh, &m_chunks_to_remesh, &m_chunk_deltas, true,
+                     &m_chunks_to_remesh_counter);
         return;
     }
 
@@ -160,8 +253,8 @@ void World::update(const glm::vec3& player_position, float fov)
                                               player_position, fov, m_settings.radius);
             double t1 = glfwGetTime();
             // LOG("clipmap time {}ms", 1000 * (t1 - t0));
-            m_clipmap.for_each_chunk_removed([this](const ChunkKey& key) { erase_chunk(key); });
-            submit_tasks(&m_clipmap.get_leaves_created(), false, &m_chunks_to_mesh_counter);
+            submit_tasks(&m_clipmap.get_leaves_created(), &m_clipmap.get_leaves_removed(),
+                         &m_clipmap.get_chunk_deltas(), false, &m_chunks_to_mesh_counter);
         }
     };
 }
@@ -187,20 +280,24 @@ void World::render(const glm::vec3& world_origin, const FirstPersonCamera& camer
         m_sp.uniform3i("u_camera_chunk_coord", camera_chunk_coord);
         m_sp.uniform1f("u_camera_chunk_size", camera_chunk_size);
 
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_chunk_aabbs_buffer.Handle());
-        glBufferData(GL_SHADER_STORAGE_BUFFER,
-                     m_chunk_draw_cmds.get_keys().size() * sizeof(ChunkKey),
-                     m_chunk_draw_cmds.get_keys().data(), GL_STREAM_DRAW);
+        if (m_chunks_dirty)
+        {
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_chunk_aabbs_buffer.Handle());
+            glBufferData(GL_SHADER_STORAGE_BUFFER,
+                         m_chunk_draw_cmds.get_keys().size() * sizeof(ChunkKey),
+                         m_chunk_draw_cmds.get_keys().data(), GL_STREAM_DRAW);
 
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_chunk_draw_cmds_buffer.Handle());
-        glBufferData(GL_SHADER_STORAGE_BUFFER,
-                     m_chunk_draw_cmds.get_values().size() * sizeof(DrawArraysIndirectCommand),
-                     m_chunk_draw_cmds.get_values().data(), GL_STREAM_DRAW);
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_chunk_draw_cmds_buffer.Handle());
+            glBufferData(GL_SHADER_STORAGE_BUFFER,
+                         m_chunk_draw_cmds.get_values().size() * sizeof(DrawArraysIndirectCommand),
+                         m_chunk_draw_cmds.get_values().data(), GL_STREAM_DRAW);
+            m_chunks_dirty = false;
+        }
 
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_world_buffer.Handle());
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_chunk_aabbs_buffer.Handle());
-
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_chunk_draw_cmds_buffer.Handle());
+
         glMultiDrawArraysIndirect(GL_TRIANGLES, 0, m_chunk_draw_cmds.get_values().size(),
                                   sizeof(DrawArraysIndirectCommand));
 

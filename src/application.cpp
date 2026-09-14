@@ -1,8 +1,7 @@
 #include "application.hpp"
 #include "vox_parser.h"
 
-Application::Application(int width, int height)
-    : width(width), height(height) {}
+Application::Application(int width, int height) : width(width), height(height) {}
 
 Application::~Application() {}
 
@@ -20,7 +19,7 @@ void Application::init()
     {
         int w, h, ch;
         stbi_set_flip_vertically_on_load(true);
-        void *atlas_data = stbi_load("resources/textures/atlas.png", &w, &h, &ch, 4);
+        void* atlas_data = stbi_load("resources/textures/atlas.png", &w, &h, &ch, 4);
         if (!atlas_data)
             return;
 
@@ -61,10 +60,7 @@ void Application::init()
     }
 }
 
-void Application::run()
-{
-    engine.run();
-}
+void Application::run() { engine.run(); }
 
 void Application::cleanup()
 {
@@ -88,9 +84,11 @@ void Application::handle_input()
     if (input.get_key(GLFW_KEY_S))
         camera.Translate(-speed * camera.GetForwardVector());
     if (input.get_key(GLFW_KEY_A))
-        camera.Translate(speed * glm::normalize(glm::cross(WorldDirection::Up, camera.GetForwardVector())));
+        camera.Translate(speed *
+                         glm::normalize(glm::cross(WorldDirection::Up, camera.GetForwardVector())));
     if (input.get_key(GLFW_KEY_D))
-        camera.Translate(-speed * glm::normalize(glm::cross(WorldDirection::Up, camera.GetForwardVector())));
+        camera.Translate(-speed *
+                         glm::normalize(glm::cross(WorldDirection::Up, camera.GetForwardVector())));
 
     if (input.get_key(GLFW_KEY_Z))
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -117,7 +115,7 @@ void Application::handle_input()
 
     float sensitivity = 0.01f;
 
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse)
     {
         if (input.get_button(GLFW_MOUSE_BUTTON_RIGHT))
@@ -130,10 +128,10 @@ void Application::handle_input()
 
             double xmouse, ymouse;
             glfwGetCursorPos(engine.window, &xmouse, &ymouse);
-            glReadPixels(
-                glm::min(static_cast<int>(xmouse), engine.renderer.viewport.x),
-                glm::min(engine.renderer.viewport.y - static_cast<int>(ymouse), engine.renderer.viewport.y),
-                1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
+            glReadPixels(glm::min(static_cast<int>(xmouse), engine.renderer.viewport.x),
+                         glm::min(engine.renderer.viewport.y - static_cast<int>(ymouse),
+                                  engine.renderer.viewport.y),
+                         1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
             float x_ndc = (2.0f * xmouse) / engine.renderer.viewport.x - 1.0f;
             float y_ndc = 1.f - (2.0f * ymouse) / engine.renderer.viewport.y;
 
@@ -156,17 +154,18 @@ void Application::handle_input()
                 static structure_id structure_handle = UINT64_MAX;
                 if (!loaded)
                 {
-                    static VoxStructure *structure = new VoxStructure();
+                    static VoxStructure* structure = new VoxStructure();
                     structure->load("resources/meshes/Willow_single_color.vox", glm::vec3(0.f));
                     structure_handle = world.create_structure(structure);
                     loaded = true;
                 }
                 world.place_structure(structure_handle, camera_world_pos() + ray_world * distance);
             }
-            if (selected_structure == Structure_SPHERE || selected_structure == Structure_SPHERE_REMOVE)
+            if (selected_structure == Structure_SPHERE ||
+                selected_structure == Structure_SPHERE_REMOVE)
             {
                 static structure_id structure_handle = UINT64_MAX;
-                SphereStructure *structure = new SphereStructure();
+                SphereStructure* structure = new SphereStructure();
                 structure->position = glm::vec3(0.f);
                 structure->radius = sphere_radius;
                 structure->radius_sq = sphere_radius * sphere_radius;
@@ -177,7 +176,8 @@ void Application::handle_input()
         }
     }
 
-    if (glm::any(glm::greaterThanEqual(glm::abs(camera.GetPosition()), glm::vec3(camera_chunk_size))))
+    if (glm::any(
+            glm::greaterThanEqual(glm::abs(camera.GetPosition()), glm::vec3(camera_chunk_size))))
     {
         glm::ivec3 chunk_offset = (camera.GetPosition() / camera_chunk_size);
         camera_chunk_coord += chunk_offset;
@@ -203,11 +203,8 @@ int Application::frame_render()
     return 0;
 }
 
-inline static const char *structure_names[Application::Structure_NONE] =
-    {
-        "Vox model",
-        "Sphere",
-        "Sphere Remove"};
+inline static const char* structure_names[Application::Structure_NONE] = {"Vox model", "Sphere",
+                                                                          "Sphere Remove"};
 
 int Application::frame_render_ui()
 {
@@ -216,7 +213,8 @@ int Application::frame_render_ui()
         if (ImGui::Begin("Debug"))
         {
             ImGui::SliderInt("structure_type", &selected_structure, 0, Structure_NONE - 1);
-            if (selected_structure == Structure_SPHERE || selected_structure == Structure_SPHERE_REMOVE)
+            if (selected_structure == Structure_SPHERE ||
+                selected_structure == Structure_SPHERE_REMOVE)
             {
                 if (selected_structure == Structure_SPHERE_REMOVE)
                     ImGui::Text("NOT ADDED YET");
@@ -250,14 +248,14 @@ int Application::frame_render_ui()
             ImGui::Checkbox("display_metrics", &display_metrics);
             if (display_metrics)
             {
-                ImGui::Text("chunks_allocated: %u", world.get_chunks_allocated());
-                ImGui::Text("nodes_created: %u", world.get_tree_node_size());
                 glm::vec3 cam_rel = camera.GetPosition();
                 glm::vec3 cam_world = cam_rel + glm::vec3(camera_chunk_coord) * camera_chunk_size;
                 ImGui::Text("dt: %fms", 1000 * engine.delta_time);
                 ImGui::Text("camera_position: [%f, %f, %f]", cam_world.x, cam_world.y, cam_world.z);
-                ImGui::Text("camera_relative_position: [%f, %f, %f]", cam_rel.x, cam_rel.y, cam_rel.z);
-                ImGui::Text("camera_chunk_coord: [%u, %u, %u]", camera_chunk_coord.x, camera_chunk_coord.y, camera_chunk_coord.z);
+                ImGui::Text("camera_relative_position: [%f, %f, %f]", cam_rel.x, cam_rel.y,
+                            cam_rel.z);
+                ImGui::Text("camera_chunk_coord: [%u, %u, %u]", camera_chunk_coord.x,
+                            camera_chunk_coord.y, camera_chunk_coord.z);
                 ImGui::Text("camera_speed: %f u/s", camera_speed);
                 ImGui::Separator();
 
@@ -268,15 +266,23 @@ int Application::frame_render_ui()
                     bool update = false;
                     update = update || ImGui::SliderInt("min_depth", &min_depth, 0, 5);
                     update = update || ImGui::SliderInt("max_depth", &max_depth, 5, 25);
-                    update = update || ImGui::SliderFloat("LOD radius", &clipmap_settings.radius, 0, 128);
+                    update = update ||
+                             ImGui::SliderFloat("LOD radius", &clipmap_settings.radius, 0, 128);
                     clipmap_settings.chunks_per_lod = chunks_per_lod;
                     clipmap_settings.min_depth = min_depth;
                     clipmap_settings.max_depth = max_depth;
 
-                    ImGui::Text("average_chunk_meshing_time %fms", float(g_meshing_time_sum / g_meshing_count));
-                    ImGui::Text("average_chunk_generating_time %fms", float(g_generating_time_sum / g_generating_count));
-                    ImGui::Text("average_chunk_total_time: %fms", (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
-                    ImGui::Text("average_chunks_per_second: ~%f/s", thread_pool.get_worker_count() * 1000 / (float(g_meshing_time_sum / g_meshing_count) + float(g_generating_time_sum / g_generating_count)));
+                    ImGui::Text("average_chunk_meshing_time %fms",
+                                float(g_meshing_time_sum / g_meshing_count));
+                    ImGui::Text("average_chunk_generating_time %fms",
+                                float(g_generating_time_sum / g_generating_count));
+                    ImGui::Text("average_chunk_total_time: %fms",
+                                (float(g_meshing_time_sum / g_meshing_count) +
+                                 float(g_generating_time_sum / g_generating_count)));
+                    ImGui::Text("average_chunks_per_second: ~%f/s",
+                                thread_pool.get_worker_count() * 1000 /
+                                    (float(g_meshing_time_sum / g_meshing_count) +
+                                     float(g_generating_time_sum / g_generating_count)));
 
                     if (update)
                         world.update_settings(clipmap_settings);
@@ -290,7 +296,8 @@ int Application::frame_render_ui()
                 if (ImGui::Button(naive ? "set greedy" : "set naive", ImVec2{64, 24}))
                 {
                     g_mesh_naive.store(!naive);
-                    world.regenerate_chunks(camera.GetPosition() + glm::vec3(camera_chunk_coord) * camera_chunk_size);
+                    world.regenerate_chunks(camera.GetPosition() +
+                                            glm::vec3(camera_chunk_coord) * camera_chunk_size);
                 }
             }
             ImGui::Checkbox("display_chunks_aabbs", &world.display_chunks);
@@ -300,17 +307,17 @@ int Application::frame_render_ui()
     return 0;
 }
 
-int Application::update_trampoline(void *user_data)
+int Application::update_trampoline(void* user_data)
 {
-    return reinterpret_cast<Application *>(user_data)->frame_update();
+    return reinterpret_cast<Application*>(user_data)->frame_update();
 }
 
-int Application::render_trampoline(void *user_data)
+int Application::render_trampoline(void* user_data)
 {
-    return reinterpret_cast<Application *>(user_data)->frame_render();
+    return reinterpret_cast<Application*>(user_data)->frame_render();
 }
 
-int Application::render_ui_trampoline(void *user_data)
+int Application::render_ui_trampoline(void* user_data)
 {
-    return reinterpret_cast<Application *>(user_data)->frame_render_ui();
+    return reinterpret_cast<Application*>(user_data)->frame_render_ui();
 }
