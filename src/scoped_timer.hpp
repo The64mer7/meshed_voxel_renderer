@@ -1,6 +1,6 @@
 #pragma once
+#include <chrono>
 #include <iostream>
-#include <GLFW/glfw3.h>
 
 class ScopedTimer
 {
@@ -8,15 +8,17 @@ public:
     ScopedTimer(std::string label)
     {
         m_label = label;
-        m_start_time = glfwGetTime();
+        m_start_time = std::chrono::high_resolution_clock::now();
     }
     ~ScopedTimer()
     {
-        m_end_time = glfwGetTime();
-        printf("%s: %f\n", m_label.c_str(), (m_end_time - m_start_time) * 1000.f);
+        m_end_time = std::chrono::high_resolution_clock::now();
+        printf("%s: %f\n", m_label.c_str(),
+               std::chrono::duration<double>(m_end_time - m_start_time).count());
     }
+
 private:
-    double m_end_time;
-    double m_start_time;
+    std::chrono::high_resolution_clock::time_point m_start_time;
+    std::chrono::high_resolution_clock::time_point m_end_time;
     std::string m_label;
 };
