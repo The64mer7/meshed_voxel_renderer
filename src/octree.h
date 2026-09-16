@@ -42,7 +42,7 @@ struct Range
 {
     uint64_t begin;
     uint64_t end;
-    uint64_t size() { return end - begin; }
+    uint64_t size() const { return end - begin; }
 };
 
 struct ChunkDelta

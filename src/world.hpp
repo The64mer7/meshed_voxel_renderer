@@ -90,6 +90,9 @@ private:
 
     ThreadSafeQueue<ChunkMesherTaskData> m_chunks_to_submit;
 
+    std::vector<uint32_t> m_delta_chunks_remaining;
+    std::vector<uint32_t> m_chunk_to_delta;
+
     ThreadSafeQueue<ChunkMesherTaskData> m_chunks_to_commit;
     ThreadSafeQueue<ChunkMesherDeltaTaskData> m_deltas_to_commit;
     std::vector<ChunkMesherTaskData> m_chunks_to_commit_vec;

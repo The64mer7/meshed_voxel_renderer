@@ -95,8 +95,8 @@ void World::submit_tasks(OctreeClipmap::LeavesVector* chunks,
                          const OctreeClipmap::DeltasVector* deltas, bool remesh,
                          std::atomic_uint32_t* counter)
 {
-    uint32_t batch_size = std::thread::hardware_concurrency();
-    uint32_t batch_count = (deltas->size() + batch_size - 1) / batch_size;
+    uint32_t batch_size = std::thread::hardware_concurrency() * 4;
+    uint32_t batch_count = (chunks->size() + batch_size - 1) / batch_size;
 
     if (batch_count > 0)
     {
@@ -116,11 +116,28 @@ void World::submit_tasks(OctreeClipmap::LeavesVector* chunks,
         task.deltas_to_commit = &m_deltas_to_commit;
         task.terrain_storage = &m_terrain_storage;
 
+        m_delta_chunks_remaining.resize(deltas->size());
+        m_chunk_to_delta.resize(chunks->size());
+
+        for (size_t d = 0; d < deltas->size(); d++)
+        {
+            const ChunkDelta& delta = (*deltas)[d];
+
+            for (size_t c = delta.created.begin; c < delta.created.end; c++)
+            {
+                m_chunk_to_delta[c] = d;
+            }
+            m_delta_chunks_remaining[d] = delta.created.size();
+        }
+
+        task.chunk_to_delta = &m_chunk_to_delta;
+        task.delta_chunks_remaining = &m_delta_chunks_remaining;
+
         TaskGen generator;
 
         m_chunks_to_commit_vec.resize(chunks->size());
         generator.task = task;
-        generator.data_count = deltas->size();
+        generator.data_count = chunks->size();
         generator.batch_size = batch_size;
 
         if (batch_count > 0)

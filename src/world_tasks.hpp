@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <glm/glm.hpp>
 
 #include "chunk_mesher.hpp"
@@ -30,6 +31,7 @@ struct ChunkMesherDeltaTaskData
 class UpdateGreedyMeshTask
 {
 public:
+    // TODO: make this leaner
     MemoryManager* manager = nullptr;
     GpuBufferMapping* gpu_buffer_mapping = nullptr;
     WorldData* world_data = nullptr;
@@ -42,7 +44,12 @@ public:
     size_t end;
     uint32_t voxels_per_axis;
     std::atomic_uint32_t* tasks_counter = nullptr;
+
     const OctreeClipmap::DeltasVector* deltas = nullptr;
+
+    std::vector<uint32_t>* delta_chunks_remaining = nullptr;
+    std::vector<uint32_t>* chunk_to_delta = nullptr;
+
     ThreadSafeQueue<ChunkMesherTaskData>* chunks_to_commit = nullptr;
     ThreadSafeQueue<ChunkMesherDeltaTaskData>* deltas_to_commit = nullptr;
     TerrainStorage* terrain_storage = nullptr;
@@ -65,6 +72,19 @@ public:
             exit(1);
         }
 
+        process_chunks();
+        tasks_counter->fetch_sub(1);
+    }
+
+private:
+    uint32_t max_structures = 16;
+
+    VoxelData* voxel_data;
+    GreedyFace* faces_buffer;
+    WorldInstance* structures;
+
+    void process_chunk_deltas()
+    {
         for (size_t i = begin; i < end; i++)
         {
             ChunkDelta delta = (*deltas)[i];
@@ -75,15 +95,25 @@ public:
 
             commit_delta(delta);
         }
-        tasks_counter->fetch_sub(1);
     }
 
-private:
-    uint32_t max_structures = 16;
+    void process_chunks()
+    {
+        for (uint32_t c = begin; c < end; c++)
+        {
+            uint32_t d = (*chunk_to_delta)[c];
 
-    VoxelData* voxel_data;
-    GreedyFace* faces_buffer;
-    WorldInstance* structures;
+            process_chunk(c);
+
+            std::atomic_ref<uint32_t> remaining_ref((*delta_chunks_remaining)[d]);
+            uint32_t old = remaining_ref.fetch_sub(1);
+
+            if (old == 1)
+            {
+                commit_delta((*deltas)[d]);
+            }
+        }
+    }
 
     void commit_delta(const ChunkDelta& delta)
     {
