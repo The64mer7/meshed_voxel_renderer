@@ -28,9 +28,44 @@ struct ChunkMesherDeltaTaskData
     ChunkDelta delta;
 };
 
+struct ChunkGenDebugContext
+{
+    std::vector<ChunkKey> aabbs;
+    std::mutex aabbs_lock;
+};
+
+struct UpgradeGreedyMeshContext
+{
+    MemoryManager* manager = nullptr;
+    GpuBufferMapping* gpu_buffer_mapping = nullptr;
+    WorldData* world_data = nullptr;
+    WorldEdits* edits = nullptr;
+
+    bool remesh;
+    OctreeClipmap::LeavesVector* chunks = nullptr;
+    OctreeClipmap::LeavesVector* chunks_removed = nullptr;
+    size_t begin;
+    size_t end;
+    uint32_t voxels_per_axis;
+    std::atomic_uint32_t* tasks_counter = nullptr;
+
+    const OctreeClipmap::DeltasVector* deltas = nullptr;
+
+    std::vector<uint32_t>* delta_chunks_remaining = nullptr;
+    std::vector<uint32_t>* chunk_to_delta = nullptr;
+
+    ThreadSafeQueue<ChunkMesherTaskData>* chunks_to_commit = nullptr;
+    ThreadSafeQueue<ChunkMesherDeltaTaskData>* deltas_to_commit = nullptr;
+    TerrainStorage* terrain_storage = nullptr;
+
+    std::vector<ChunkMesherTaskData>* chunks_to_commit_vec = nullptr;
+};
+
 class UpdateGreedyMeshTask
 {
 public:
+    ChunkGenDebugContext* debug_ctx;
+
     // TODO: make this leaner
     MemoryManager* manager = nullptr;
     GpuBufferMapping* gpu_buffer_mapping = nullptr;
@@ -64,9 +99,9 @@ public:
         voxel_data = allocator->allocate<VoxelData>(1);
         faces_buffer = allocator->allocate<GreedyFace>(size_3d * 6);
 
-        structures = allocator->allocate<WorldInstance>(max_structures);
+        instances = allocator->allocate<WorldInstance>(max_instances);
 
-        if (voxel_data == nullptr || faces_buffer == nullptr || structures == nullptr)
+        if (voxel_data == nullptr || faces_buffer == nullptr || instances == nullptr)
         {
             LOG("ALLOCATION FAIL");
             exit(1);
@@ -77,11 +112,11 @@ public:
     }
 
 private:
-    uint32_t max_structures = 16;
+    uint32_t max_instances = 16;
 
     VoxelData* voxel_data;
     GreedyFace* faces_buffer;
-    WorldInstance* structures;
+    WorldInstance* instances;
 
     void process_chunk_deltas()
     {
@@ -127,10 +162,28 @@ private:
     bool generate_and_mesh(const ChunkKey& key, ChunkGreedyMesherResult* result)
     {
         auto t0 = std::chrono::high_resolution_clock::now();
-        HeightMap& data = terrain_storage->get_heightmap(key, *world_data);
+        TerrainNoise::potential_noise_calls.fetch_add(1);
 
-        if (!voxel_data->compute_terrain(key, data, *world_data, edits, structures, max_structures))
+        bool did_generate = false;
+        HeightMapData& heightmap_data = terrain_storage->get_heightmap_data(
+            key, *world_data, voxel_data->height_map, &did_generate);
+
+        if (did_generate)
+        {
+            std::lock_guard lock(debug_ctx->aabbs_lock);
+            debug_ctx->aabbs.push_back(key);
+        }
+
+        bool has_terrain = voxel_data->chunk_contains_terrain(key, heightmap_data, *world_data);
+        if (!has_terrain)
             return false;
+
+        if (!did_generate)
+            auto minmax = voxel_data->generate_terrain(key, *world_data);
+
+        if (!voxel_data->generate_terrain_material(key, *world_data))
+            return false;
+
         auto t1 = std::chrono::high_resolution_clock::now();
         double elapsed_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
 

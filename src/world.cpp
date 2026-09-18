@@ -98,6 +98,19 @@ void World::submit_tasks(OctreeClipmap::LeavesVector* chunks,
     uint32_t batch_size = std::thread::hardware_concurrency() * 4;
     uint32_t batch_count = (chunks->size() + batch_size - 1) / batch_size;
 
+    size_t map_count = m_terrain_storage.get_total_maps();
+    size_t kilobyte_size = map_count * sizeof(HeightMapData) / 1024;
+    LOG("heightmap before: {}kB", kilobyte_size);
+
+    if (kilobyte_size > 512)
+    {
+        size_t target_total_maps = (512 * 1024) / sizeof(HeightMapData);
+        size_t excess_maps = map_count - target_total_maps;
+        size_t excess_maps_per_region = excess_maps / TerrainStorage::NUM_REGIONS;
+        m_terrain_storage.free_memory(excess_maps_per_region);
+    }
+    LOG("heightmap after: {}kB", kilobyte_size);
+
     if (batch_count > 0)
     {
         UpdateGreedyMeshTask task;
@@ -115,6 +128,10 @@ void World::submit_tasks(OctreeClipmap::LeavesVector* chunks,
         task.deltas = deltas;
         task.deltas_to_commit = &m_deltas_to_commit;
         task.terrain_storage = &m_terrain_storage;
+
+        task.debug_ctx = &m_debug_context;
+
+        m_debug_context.aabbs.clear();
 
         m_delta_chunks_remaining.resize(deltas->size());
         m_chunk_to_delta.resize(chunks->size());
@@ -157,6 +174,8 @@ void World::submit_tasks(OctreeClipmap::LeavesVector* chunks,
 
 void World::update(const glm::vec3& player_position, float fov)
 {
+    if (m_pause_update)
+        return;
     // m_clipmap.for_each_chunk_removed([this](const ChunkKey& key) { erase_chunk(key); });
 
     // ChunkMesherTaskData data;
@@ -276,6 +295,24 @@ void World::update(const glm::vec3& player_position, float fov)
     };
 }
 
+void draw_aabb(const ChunkKey& key, packed_aabb64 packed_aabb, const WorldData& m_data,
+               ShaderProgram& sp)
+{
+    float chunk_size = m_data.chunk_size(key.lod);
+    float voxel_size = m_data.voxel_size(key.lod);
+
+    glm::vec3 aabb_origin;
+    aabb_origin = key.coord;
+    aabb_origin *= chunk_size;
+
+    glm::ivec3 min, max;
+    unpack_aabb64(packed_aabb, &min, &max);
+
+    sp.uniform3f("u_cube_min", aabb_origin + glm::vec3(min) * voxel_size);
+    sp.uniform3f("u_cube_size", voxel_size * glm::vec3(max - min));
+    glDrawArrays(GL_LINES, 0, 24);
+}
+
 void World::render(const glm::vec3& world_origin, const FirstPersonCamera& camera,
                    const glm::ivec3& camera_chunk_coord, float camera_chunk_size)
 {
@@ -318,28 +355,23 @@ void World::render(const glm::vec3& world_origin, const FirstPersonCamera& camer
         glMultiDrawArraysIndirect(GL_TRIANGLES, 0, m_chunk_draw_cmds.get_values().size(),
                                   sizeof(DrawArraysIndirectCommand));
 
+        m_sp.uniform1ui("u_render_cube", 1u);
         if (display_chunks)
         {
-            m_sp.uniform1ui("u_render_cube", 1u);
 
             for (int i = 0; i < m_chunk_aabbs.get_keys().size(); i++)
             {
                 ChunkKey key = m_chunk_aabbs.get_keys()[i];
                 packed_aabb64 packed_aabb = m_chunk_aabbs.get_values()[i];
-                float chunk_size = m_data.chunk_size(key.lod);
-                float voxel_size = m_data.voxel_size(key.lod);
-
-                glm::vec3 aabb_origin;
-                aabb_origin = key.coord;
-                aabb_origin *= chunk_size;
-
-                glm::ivec3 min, max;
-                unpack_aabb64(packed_aabb, &min, &max);
-
-                m_sp.uniform3f("u_cube_min", aabb_origin + glm::vec3(min) * voxel_size);
-                m_sp.uniform3f("u_cube_size", voxel_size * glm::vec3(max - min));
-                glDrawArrays(GL_LINES, 0, 24);
+                draw_aabb(key, packed_aabb, m_data, m_sp);
             }
+        }
+
+        for (int i = 0; i < m_debug_context.aabbs.size(); i++)
+        {
+            ChunkKey key = m_debug_context.aabbs[i];
+            packed_aabb64 packed_aabb = make_aabb_64({0, 0, 0}, {63, 63, 63});
+            draw_aabb(key, packed_aabb, m_data, m_sp);
         }
         m_sp.unbind();
     }

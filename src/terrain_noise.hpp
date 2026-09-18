@@ -3,6 +3,7 @@
 #include "FastNoise/FastNoise.h"
 #include "utils.hpp"
 #include "world_data.hpp"
+#include <atomic>
 #include <cassert>
 #include <mutex>
 
@@ -18,6 +19,8 @@ inline static const char* world_preset_names[] = {"mountains", "desert", "count"
 class TerrainNoise
 {
 public:
+    inline static std::atomic_uint64_t noise_calls = 0;
+    inline static std::atomic_uint64_t potential_noise_calls = 0;
     inline static int seed = 0;
     inline static world_preset preset = world_preset::mountains;
     inline static float frequency = 0.25f;
@@ -137,6 +140,7 @@ public:
                             float voxel_size)
     {
         assert(root_node && "TerrainNoise::init() was not called before generate_2d!");
+        noise_calls.fetch_add(1);
 
         glm::vec2 noise = (origin - voxel_size) * frequency;
         return root_node->GenUniformGrid2D(height_map, noise.x, noise.y, voxels_per_chunk_axis + 2,
@@ -148,6 +152,7 @@ public:
                             float voxel_size)
     {
         assert(root_node && "TerrainNoise::init() was not called before generate_3d!");
+        noise_calls.fetch_add(1);
 
         glm::vec3 noise = origin * frequency;
         return root_node->GenUniformGrid3D(density_map, noise.x, noise.y, noise.z,
@@ -157,21 +162,23 @@ public:
     }
 };
 
-struct HeightMap
+struct HeightMapData
 {
     FastNoise::OutputMinMax bounds;
-    float data[64][64];
 };
 
 class TerrainStorage
 {
 
 public:
-    HeightMap& get_heightmap(const ChunkKey& key, const WorldData& world_data)
+    HeightMapData& get_heightmap_data(const ChunkKey& key, const WorldData& world_data, float* data,
+                                      bool* did_generate)
     {
-        uint32_t index = std::hash<ChunkKey>()(key) % NUM_REGIONS;
-        auto& chunk = m_heightmap_regions[index];
+        *did_generate = false;
         glm::ivec3 horizontal_key = glm::xzw(key.raw_vec);
+
+        uint32_t index = std::hash<glm::ivec3>()(horizontal_key) % NUM_REGIONS;
+        auto& chunk = m_heightmap_regions[index];
 
         std::lock_guard lock(locks[index]);
 
@@ -179,21 +186,39 @@ public:
         if (it == chunk.end())
         {
             HeightMapData& new_data = chunk[horizontal_key];
-            new_data.heightmap.bounds = TerrainNoise::generate_2d(
-                &new_data.heightmap.data[0][0], glm::xz(world_data.chunk_origin(key)),
-                world_data.voxels_per_chunk_axis, world_data.voxel_size(key.lod));
-            return new_data.heightmap;
+            new_data.bounds = TerrainNoise::generate_2d(data, glm::xz(world_data.chunk_origin(key)),
+                                                        world_data.voxels_per_chunk_axis,
+                                                        world_data.voxel_size(key.lod));
+            *did_generate = true;
+            m_total_maps.fetch_add(1);
+            return new_data;
         }
-        return it->second.heightmap;
+        return it->second;
     }
 
-private:
-    struct HeightMapData
+    void free_memory(size_t heightmaps_per_region)
     {
-        HeightMap heightmap;
-    };
+        for (size_t i = 0; i < NUM_REGIONS; i++)
+        {
+            std::lock_guard lock(locks[i]);
+
+            size_t removed = 0;
+            while (removed < heightmaps_per_region && !m_heightmap_regions[i].empty())
+            {
+                auto it = m_heightmap_regions[i].begin();
+                m_heightmap_regions[i].erase(it);
+                removed++;
+            }
+            m_total_maps.fetch_sub(removed);
+        }
+    }
+
+    size_t get_total_maps() { return m_total_maps.load(); }
 
     inline static constexpr const uint32_t NUM_REGIONS = 16;
+
+private:
     std::unordered_map<glm::ivec3, HeightMapData> m_heightmap_regions[NUM_REGIONS];
+    std::atomic<size_t> m_total_maps = 0;
     std::mutex locks[NUM_REGIONS];
 };

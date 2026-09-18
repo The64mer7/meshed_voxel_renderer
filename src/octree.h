@@ -322,7 +322,7 @@ public:
         root.prev_tree_node_idx = prev_nodes.empty() ? invalid_id : 0;
 
         stack.push(root);
-        float focal_length = glm::tan(fov);
+        float focal_length = 1.f / glm::tan(fov);
 
         auto remove_chunks_in_branch = [this](uint64_t index, const ChunkKey& key)
         {
@@ -352,9 +352,11 @@ public:
             uint64_t prev_parent_node_idx = node_item.prev_tree_parent_node_idx;
 
             nodes.push_back(FlatOctreeNode());
-            float target_depth = get_target_depth(position, node_item.pos + node_item.size * 0.5f,
-                                                  radius, max_depth);
             uint32_t depth = node_item.key.lod;
+
+            float target_depth = get_target_depth_screen_space(
+                position, node_item.pos + node_item.size * 0.5f, node_item.size, depth, max_depth,
+                focal_length, radius/100);
 
             bool is_leaf = (depth >= max_depth) || (depth >= target_depth && depth >= min_depth);
 
@@ -881,6 +883,17 @@ private:
         float dist_ratio = glm::max(1.0f, dist / radius);
         float target_depth = max_depth - glm::log2(dist_ratio);
         return glm::max(0.f, target_depth);
+    }
+
+    float get_target_depth_screen_space(const glm::vec3& v0, const glm::vec3& v1, float node_size,
+                                        uint32_t depth, uint32_t max_depth, float focal_length,
+                                        float threshold)
+    {
+        float dist = glm::distance(v0, v1);
+        float screen_size = node_size * focal_length / dist;
+        float target_depth = float(depth) + glm::log2(screen_size / threshold);
+
+        return glm::clamp(target_depth, 0.f, float(max_depth));
     }
 
     std::vector<ChunkDelta> m_chunk_deltas;

@@ -46,6 +46,20 @@ public:
         ImGui::Text("nodes_created: %u", get_tree_node_size());
         ImGui::Text("chunks_with_meshes_troughput: %f/s", get_meshed_chunks_troughput());
         ImGui::Text("chunks_all_troughput: %f/s", get_all_chunks_troughput());
+
+        ImGui::Text("noise calls %u", TerrainNoise::noise_calls.load());
+        ImGui::Text("potential noise calls %u", TerrainNoise::potential_noise_calls.load());
+
+        if (ImGui::Button("clear noise calls"))
+        {
+            TerrainNoise::noise_calls.store(0);
+            TerrainNoise::potential_noise_calls.store(0);
+        }
+
+        ImGui::Text("new_algorithm_vs_prev_speedup %f",
+                    float(TerrainNoise::potential_noise_calls.load()) /
+                        TerrainNoise::noise_calls.load());
+        ImGui::Checkbox("pause update", &m_pause_update);
     }
 
     OctreeClipmapGenerateSettings& get_settings() { return m_settings; }
@@ -117,4 +131,8 @@ private:
     uint32_t m_empty_chunks_count = 0;
 
     TerrainStorage m_terrain_storage;
+
+    bool m_pause_update = false;
+
+    ChunkGenDebugContext m_debug_context;
 };

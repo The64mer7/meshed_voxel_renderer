@@ -131,7 +131,7 @@ struct VoxelCoord
 
 struct VoxelData
 {
-    float* height_map;
+    float height_map[64 * 64];
     float density_map[64][64][64];
     uint16_t material_map[64][64][64];
     uint64_t solid_mask[64][64];
@@ -142,8 +142,8 @@ struct VoxelData
         uint64_t face_mask[64];
     };
 
-    uint16_t calculate_material(int32_t x, int32_t y, int32_t z, glm::vec3 chunk_origin,
-                                float voxel_size, glm::vec3 voxel_origin)
+    uint16_t get_terrain_material(int32_t x, int32_t y, int32_t z, glm::vec3 chunk_origin,
+                                  float voxel_size, glm::vec3 voxel_origin)
     {
         float h = height_map[z * 64 + x];
         if (voxel_origin.y >= h)
@@ -242,8 +242,8 @@ struct VoxelData
                                                           voxel_origin, voxel_size);
 
                     if (material == 0)
-                        material = calculate_material(x, y, z, chunk_origin, voxel_size,
-                                                      voxel_origin);
+                        material = get_terrain_material(x, y, z, chunk_origin, voxel_size,
+                                                        voxel_origin);
 
                     bool is_solid = material != 0;
                     material_map[z][y][x] = is_solid ? material : 0;
@@ -262,24 +262,15 @@ struct VoxelData
                     }
                 }
             }
-
+        packed_aabb = make_aabb_64(aabb_min, aabb_max);
         return true;
     }
 
-    bool compute_terrain(const ChunkKey& key, HeightMap& data, const WorldData& world_data,
-                         WorldEdits* edits, WorldInstance* instances, uint32_t max_instances)
+    bool can_prune_compute_terrain(float max_height, float min_height, float chunk_top,
+                                   float chunk_bot, const ChunkKey& key,
+                                   const WorldData& world_data, WorldInstance* instances,
+                                   uint32_t max_instances, WorldEdits* edits)
     {
-        float voxel_size = world_data.voxel_size(key.lod);
-        float chunk_size = world_data.chunk_size(key.lod);
-        int voxels_per_chunk_axis = world_data.voxels_per_chunk_axis;
-        glm::vec3 chunk_origin = world_data.chunk_origin(key);
-
-        height_map = &data.data[0][0];
-        float max_height = data.bounds.max;
-        float min_height = data.bounds.min;
-        float chunk_top = chunk_origin.y + chunk_size;
-        float chunk_bot = chunk_origin.y;
-
         aabb3d aabb;
         aabb.min = world_data.chunk_origin(key);
         aabb.max = aabb.min + world_data.chunk_size(key.lod);
@@ -287,16 +278,42 @@ struct VoxelData
 
         if (instance_count == 0 && (chunk_bot > max_height || chunk_top < min_height))
             return false;
+    }
 
-        // auto bounds_3d = TerrainNoise::generate_3d(&density_map[0][0][0], chunk_origin,
-        // world_data.voxels_per_chunk_axis, voxel_size);
-        //
-        // if (bounds_3d.max <= 0.f || chunk_top < min_height && bounds_3d.min > 0.f)
-        //     return false;
+    bool chunk_contains_terrain(const ChunkKey& key, const HeightMapData& heightmap_data,
+                                const WorldData& world_data)
+    {
+        glm::vec3 chunk_origin = world_data.chunk_origin(key);
 
-        glm::ivec3 aabb_min(world_data.voxels_per_chunk_axis);
+        float chunk_size = world_data.chunk_size(key.lod);
+        float max_height = heightmap_data.bounds.max;
+        float min_height = heightmap_data.bounds.min;
+        float chunk_top = chunk_origin.y + chunk_size;
+        float chunk_bot = chunk_origin.y;
+
+        if (chunk_bot > max_height || chunk_top < min_height)
+            return false;
+        return true;
+    }
+
+    auto generate_terrain(const ChunkKey& key, const WorldData& world_data)
+    {
+        return TerrainNoise::generate_2d(height_map, glm::xz(world_data.chunk_origin(key)),
+                                         world_data.voxels_per_chunk_axis,
+                                         world_data.voxel_size(key.lod));
+    }
+
+    bool generate_terrain_material(const ChunkKey& key, const WorldData& world_data)
+    {
+        float voxel_size = world_data.voxel_size(key.lod);
+        float chunk_size = world_data.chunk_size(key.lod);
+        int voxels_per_chunk_axis = world_data.voxels_per_chunk_axis;
+        glm::vec3 chunk_origin = world_data.chunk_origin(key);
+        glm::ivec3 aabb_min(voxels_per_chunk_axis);
         glm::ivec3 aabb_max(0);
+
         for (int z = 0; z < voxels_per_chunk_axis + 2; z++)
+        {
             for (int y = 0; y < voxels_per_chunk_axis + 2; y++)
             {
                 solid_mask[z][y] = 0;
@@ -305,23 +322,15 @@ struct VoxelData
                     glm::vec3 voxel_origin = glm::vec3(x - 1, y - 1, z - 1) * voxel_size +
                                              chunk_origin;
 
-                    uint16_t material = 0;
-
-                    if (instance_count)
-                        material = get_structure_material(edits, instances, instance_count,
-                                                          voxel_origin, voxel_size);
-
-                    if (material == 0)
-                        material = calculate_material(x, y, z, chunk_origin, voxel_size,
-                                                      voxel_origin);
+                    uint16_t material = get_terrain_material(x, y, z, chunk_origin, voxel_size,
+                                                             voxel_origin);
 
                     bool is_solid = material != 0;
                     material_map[z][y][x] = is_solid ? material : 0;
                     solid_mask[z][y] |= is_solid ? (1ull << x) : 0;
 
-                    if (is_solid && x > 0 && x <= world_data.voxels_per_chunk_axis && y > 0 &&
-                        y <= world_data.voxels_per_chunk_axis && z > 0 &&
-                        z <= world_data.voxels_per_chunk_axis)
+                    if (is_solid && x > 0 && x <= voxels_per_chunk_axis && y > 0 &&
+                        y <= voxels_per_chunk_axis && z > 0 && z <= voxels_per_chunk_axis)
                     {
                         aabb_min.x = glm::min(aabb_min.x, x - 1);
                         aabb_min.y = glm::min(aabb_min.y, y - 1);
@@ -332,9 +341,47 @@ struct VoxelData
                     }
                 }
             }
+        }
 
         packed_aabb = make_aabb_64(aabb_min, aabb_max);
         return true;
+    }
+
+    void apply_structures(const ChunkKey& key, const WorldData& world_data, WorldEdits* edits,
+                          WorldInstance* instances, uint32_t max_instances)
+    {
+        float voxel_size = world_data.voxel_size(key.lod);
+        int voxels_per_chunk_axis = world_data.voxels_per_chunk_axis;
+        glm::vec3 chunk_origin = world_data.chunk_origin(key);
+
+        aabb3d aabb;
+        aabb.min = chunk_origin;
+        aabb.max = aabb.min + world_data.chunk_size(key.lod);
+        uint32_t instance_count = edits->find_instances_in_region(aabb, instances, max_instances);
+
+        if (instance_count == 0)
+            return;
+
+        for (int z = 0; z < voxels_per_chunk_axis + 2; z++)
+        {
+            for (int y = 0; y < voxels_per_chunk_axis + 2; y++)
+            {
+                for (int x = 0; x < voxels_per_chunk_axis + 2; x++)
+                {
+                    glm::vec3 voxel_origin = glm::vec3(x - 1, y - 1, z - 1) * voxel_size +
+                                             chunk_origin;
+
+                    uint16_t structure_material = get_structure_material(
+                        edits, instances, instance_count, voxel_origin, voxel_size);
+
+                    if (structure_material != 0)
+                    {
+                        material_map[z][y][x] = structure_material;
+                        solid_mask[z][y] |= (1ull << x);
+                    }
+                }
+            }
+        }
     }
 
     // Fills face_mask slice at pos with data, if dir uses axis X, then face_mask_3d is populated
