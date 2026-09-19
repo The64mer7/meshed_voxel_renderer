@@ -175,14 +175,33 @@ private:
         }
 
         bool has_terrain = voxel_data->chunk_contains_terrain(key, heightmap_data, *world_data);
-        if (!has_terrain)
+
+        aabb3d bounds;
+        bounds.min = world_data->chunk_origin(key);
+        bounds.max = bounds.min + world_data->chunk_size(key.lod);
+        uint32_t num_instances = edits->find_instances_in_region(bounds, instances, max_instances);
+
+        if (!has_terrain && num_instances == 0)
             return false;
 
-        if (!did_generate)
-            auto minmax = voxel_data->generate_terrain(key, *world_data);
+        if (has_terrain)
+        {
+            if (!did_generate)
+                voxel_data->generate_terrain(key, *world_data);
 
-        if (!voxel_data->generate_terrain_material(key, *world_data))
-            return false;
+            if (!voxel_data->generate_terrain_material(key, *world_data) && num_instances == 0)
+                return false;
+        }
+        else
+        {
+            memset(voxel_data->material_map, 0, sizeof(voxel_data->material_map));
+            memset(voxel_data->solid_mask, 0, sizeof(voxel_data->solid_mask));
+        }
+
+        if (num_instances)
+        {
+            voxel_data->apply_structures(key, *world_data, edits, instances, num_instances);
+        }
 
         auto t1 = std::chrono::high_resolution_clock::now();
         double elapsed_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();

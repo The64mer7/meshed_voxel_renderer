@@ -42,7 +42,7 @@ void Application::init()
     world_data.thread_pool = &thread_pool;
 
     clipmap_settings.radius = 32;
-    clipmap_settings.min_depth = 4;
+    clipmap_settings.min_depth = 0;
     clipmap_settings.max_depth = 19;
     clipmap_settings.chunks_per_lod = 3;
 

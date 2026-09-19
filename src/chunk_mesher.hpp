@@ -175,10 +175,10 @@ struct VoxelData
     }
 
     uint16_t get_structure_material(WorldEdits* edits, WorldInstance* instances,
-                                    uint32_t instance_count, glm::vec3 voxel_origin,
+                                    uint32_t num_instances, glm::vec3 voxel_origin,
                                     float voxel_size)
     {
-        for (int i = instance_count - 1; i >= 0; i--)
+        for (int i = num_instances - 1; i >= 0; i--)
         {
             const WorldInstance& instance = instances[i];
             OctreeStructure* structure = edits->get_structure(instance.structure_idx);
@@ -348,19 +348,11 @@ struct VoxelData
     }
 
     void apply_structures(const ChunkKey& key, const WorldData& world_data, WorldEdits* edits,
-                          WorldInstance* instances, uint32_t max_instances)
+                          WorldInstance* instances, uint32_t num_instances)
     {
         float voxel_size = world_data.voxel_size(key.lod);
         int voxels_per_chunk_axis = world_data.voxels_per_chunk_axis;
         glm::vec3 chunk_origin = world_data.chunk_origin(key);
-
-        aabb3d aabb;
-        aabb.min = chunk_origin;
-        aabb.max = aabb.min + world_data.chunk_size(key.lod);
-        uint32_t instance_count = edits->find_instances_in_region(aabb, instances, max_instances);
-
-        if (instance_count == 0)
-            return;
 
         for (int z = 0; z < voxels_per_chunk_axis + 2; z++)
         {
@@ -372,7 +364,7 @@ struct VoxelData
                                              chunk_origin;
 
                     uint16_t structure_material = get_structure_material(
-                        edits, instances, instance_count, voxel_origin, voxel_size);
+                        edits, instances, num_instances, voxel_origin, voxel_size);
 
                     if (structure_material != 0)
                     {

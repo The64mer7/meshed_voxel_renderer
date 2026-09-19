@@ -102,9 +102,9 @@ void World::submit_tasks(OctreeClipmap::LeavesVector* chunks,
     size_t kilobyte_size = map_count * sizeof(HeightMapData) / 1024;
     LOG("heightmap before: {}kB", kilobyte_size);
 
-    if (kilobyte_size > 512)
+    if (kilobyte_size > 64)
     {
-        size_t target_total_maps = (512 * 1024) / sizeof(HeightMapData);
+        size_t target_total_maps = (64 * 1024) / sizeof(HeightMapData);
         size_t excess_maps = map_count - target_total_maps;
         size_t excess_maps_per_region = excess_maps / TerrainStorage::NUM_REGIONS;
         m_terrain_storage.free_memory(excess_maps_per_region);
